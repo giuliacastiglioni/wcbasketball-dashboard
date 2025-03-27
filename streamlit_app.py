@@ -9,7 +9,6 @@ st.title("🏀 Statistiche Basket Femminile College 2021-2025")
 # Caricamento dei dati
 uploaded_teams = st.file_uploader("Carica il file CSV delle squadre", type=["csv"], key="teams")
 uploaded_rosters = st.file_uploader("Carica i file CSV dei roster (2021-2025)", type=["csv"], accept_multiple_files=True, key="rosters")
-uploaded_stats = st.file_uploader("Carica il file CSV delle statistiche 2023-2024", type=["csv"], key="stats")
 
 if uploaded_teams and uploaded_rosters and uploaded_stats:
     teams_df = pd.read_csv(uploaded_teams)
