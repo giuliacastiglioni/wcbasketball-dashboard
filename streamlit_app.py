@@ -17,10 +17,9 @@ if uploaded_teams and uploaded_rosters and uploaded_stats:
     roster_df = pd.concat(roster_dfs)
     stats_df = pd.read_csv(uploaded_stats)
 
-    # Normalizza i nomi delle colonne per evitare problemi di maiuscole/spazi
-    stats_df.columns = stats_df.columns.str.strip().str.upper()
-    roster_df.columns = roster_df.columns.str.strip().str.upper()
-    teams_df.columns = teams_df.columns.str.strip().str.upper()
+    # Normalizza i nomi delle colonne in tutti i DataFrame
+    for df in [teams_df, roster_df, stats_df]:
+        df.columns = df.columns.str.strip().str.upper()
 
     st.write("Anteprima delle squadre:")
     st.dataframe(teams_df.head())
@@ -36,7 +35,7 @@ if uploaded_teams and uploaded_rosters and uploaded_stats:
     df_team = roster_df[roster_df['TEAM_NAME'] == team_selected]
 
     # Mostra informazioni sulla squadra selezionata
-    team_info = teams_df[teams_df['TEAM'] == team_selected]
+    team_info = teams_df[teams_df['TEAM_NAME'] == team_selected]
     if not team_info.empty:
         st.subheader(f"Informazioni sulla squadra: {team_selected}")
         st.write(f"**Twitter:** {team_info['TWITTER'].values[0]}")
@@ -46,10 +45,10 @@ if uploaded_teams and uploaded_rosters and uploaded_stats:
 
     # Selezione della giocatrice
     player_selected = st.selectbox("Seleziona una giocatrice", df_team['NAME'].unique())
-    
+
     # Controlla se 'PLAYER_NAME' è presente in stats_df
     if 'PLAYER_NAME' in stats_df.columns:
-        df_player = stats_df[stats_df['PLAYER_NAME'].str.strip() == player_selected]
+        df_player = stats_df[stats_df['PLAYER_NAME'] == player_selected]
 
         if df_player.empty:
             st.warning(f"Nessuna statistica trovata per {player_selected}")
