@@ -1,24 +1,30 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-
+import plotly.graph_objects as go
 
 # Titolo dell'app
-st.title("🏀 Statistiche Basket Femminile College 2024-2025")
+st.title("🏀 Statistiche Basket Femminile College 2021-2025")
 
 # Caricamento dei dati
 uploaded_teams = st.file_uploader("Carica il file CSV delle squadre", type=["csv"], key="teams")
-uploaded_roster = st.file_uploader("Carica il file CSV del roster 2024-2025", type=["csv"], key="roster")
+uploaded_rosters = st.file_uploader("Carica i file CSV dei roster (2021-2025)", type=["csv"], accept_multiple_files=True, key="rosters")
+uploaded_stats = st.file_uploader("Carica il file CSV delle statistiche 2023-2024", type=["csv"], key="stats")
 
-if uploaded_teams and uploaded_roster:
+if uploaded_teams and uploaded_rosters and uploaded_stats:
     teams_df = pd.read_csv(uploaded_teams)
-    roster_df = pd.read_csv(uploaded_roster)
+    roster_dfs = [pd.read_csv(f) for f in uploaded_rosters]
+    roster_df = pd.concat(roster_dfs)
+    stats_df = pd.read_csv(uploaded_stats)
     
     st.write("Anteprima delle squadre:")
     st.dataframe(teams_df.head())
     
     st.write("Anteprima del roster:")
     st.dataframe(roster_df.head())
+    
+    st.write("Anteprima delle statistiche:")
+    st.dataframe(stats_df.head())
     
     # Selezione della squadra
     team_selected = st.selectbox("Seleziona una squadra", roster_df['team'].unique())
@@ -35,55 +41,40 @@ if uploaded_teams and uploaded_roster:
     
     # Selezione della giocatrice
     player_selected = st.selectbox("Seleziona una giocatrice", df_team['name'].unique())
-    df_player = df_team[df_team['name'] == player_selected]
+    df_player = stats_df[stats_df['PLAYER_NAME'] == player_selected]
     
-    # Statistiche della giocatrice
+    # Statistiche complete della giocatrice
     st.subheader(f"Statistiche di {player_selected}")
-    st.write(df_player[['year_clean', 'position_clean', 'height_ft', 'height_in', 'total_inches', 'hometown_clean', 'state_clean']])
-    
-    # Visualizzazione 3D (altezza delle giocatrici rispetto al ruolo)
-    fig_3d = px.scatter_3d(df_team, x='total_inches', y='primary_position', z='year_clean', color='total_inches',
-                           hover_name='name', title=f"Distribuzione Altezza/Ruolo - {team_selected}")
-    st.plotly_chart(fig_3d)
-    
-    # Visualizzazione 3D specifica per la giocatrice selezionata
-    st.subheader(f"Visualizzazione 3D - {player_selected}")
-    fig_player_3d = px.scatter_3d(df_player, x='total_inches', y='primary_position', z='year_clean',
-                                  color='total_inches', hover_name='name',
-                                  title=f"Profilo Altezza/Ruolo - {player_selected}")
-    st.plotly_chart(fig_player_3d)
-    
-    # Grafico dei tiri su un campo da basket
-    st.subheader(f"Tiri di {player_selected}")
-    if 'shot_x' in df_player.columns and 'shot_y' in df_player.columns:
-        fig_shot = px.scatter(df_player, x='shot_x', y='shot_y', 
-                          color_discrete_sequence=['red'],
-                          title=f"Mappa Tiri - {player_selected}")
-        fig_shot.update_layout(xaxis_title="Posizione X", yaxis_title="Posizione Y")
-        st.plotly_chart(fig_shot)
-    else:
-        st.write("Dati sui tiri non disponibili.")
-
-    # Trend di crescita della giocatrice
-    st.subheader(f"Evoluzione della carriera di {player_selected}")
-    if 'season' in df_player.columns and 'total_inches' in df_player.columns:
-        fig_growth = px.line(df_player, x='season', y='total_inches', title=f"Evoluzione Altezza - {player_selected}", markers=True)
-        st.plotly_chart(fig_growth)
-    else:
-        st.write("Dati di crescita non disponibili.")
+    st.dataframe(df_player)
     
     # Grafico radar delle abilità
     st.subheader(f"Profilo Abilità - {player_selected}")
-    skill_cols = ['points', 'rebounds', 'assists', 'steals', 'blocks']
+    skill_cols = ['POINTS', 'TOTAL_REBOUNDS', 'ASSISTS', 'STEALS', 'BLOCKS']
     if all(col in df_player.columns for col in skill_cols):
         skills = df_player[skill_cols].mean()
         fig_radar = px.line_polar(r=skills.values, theta=skill_cols, line_close=True, title=f"Radar Abilità - {player_selected}")
         st.plotly_chart(fig_radar)
-    else:
-        st.write("Dati sulle abilità non disponibili.")
     
+    # Grafico 3D a bolle
+    st.subheader("Prestazioni della giocatrice in 3D")
+    if all(col in df_player.columns for col in ['MINUTES_PLAYED', 'POINTS', 'TOTAL_REBOUNDS']):
+        fig_3d = px.scatter_3d(df_player, x='MINUTES_PLAYED', y='POINTS', z='TOTAL_REBOUNDS', color='GAMES',
+                               size='POINTS', title=f"Performance 3D di {player_selected}")
+        st.plotly_chart(fig_3d)
+    
+    # Istogrammi 3D
+    st.subheader("Distribuzione Statistiche in 3D")
+    if all(col in df_player.columns for col in ['GAMES', 'FIELD_GOALS_MADE', 'THREE_POINTS_MADE']):
+        fig_hist3d = go.Figure(data=[go.Bar3d(
+            x=df_player['GAMES'],
+            y=['Field Goals', '3PT Made'],
+            z=[df_player['FIELD_GOALS_MADE'].sum(), df_player['THREE_POINTS_MADE'].sum()],
+            opacity=0.8
+        )])
+        fig_hist3d.update_layout(title=f"Distribuzione dei Tiri di {player_selected}")
+        st.plotly_chart(fig_hist3d)
 else:
-    st.write("Carica entrambi i file CSV per iniziare!")
+    st.write("Carica tutti i file CSV per iniziare!")
 
 # Footer
-st.write("App creata con ❤️ usando Streamlit, Matplotlib e Plotly")
+st.write("App creata con ❤️ usando Streamlit e Plotly")
