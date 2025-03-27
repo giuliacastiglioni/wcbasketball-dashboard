@@ -10,16 +10,14 @@ st.title("🏀 Statistiche Basket Femminile College 2021-2025")
 uploaded_teams = st.file_uploader("Carica il file CSV delle squadre", type=["csv"], key="teams")
 uploaded_rosters = st.file_uploader("Carica i file CSV dei roster (2021-2025)", type=["csv"], accept_multiple_files=True, key="rosters")
 
-if uploaded_teams and uploaded_rosters and uploaded_stats:
+if uploaded_teams and uploaded_rosters:
     teams_df = pd.read_csv(uploaded_teams)
     roster_dfs = [pd.read_csv(f) for f in uploaded_rosters]
     roster_df = pd.concat(roster_dfs)
-    stats_df = pd.read_csv(uploaded_stats)
     
     # Normalizzazione nomi colonne
-    teams_df.columns = teams_df.columns.str.strip().str.upper()
-    roster_df.columns = roster_df.columns.str.strip().str.upper()
-    stats_df.columns = stats_df.columns.str.strip().str.upper()
+    teams_df.columns = teams_df.columns.str.strip().str.lower()
+    roster_df.columns = roster_df.columns.str.strip().str.lower()
     
     st.write("Anteprima delle squadre:")
     st.dataframe(teams_df.head())
@@ -27,62 +25,54 @@ if uploaded_teams and uploaded_rosters and uploaded_stats:
     st.write("Anteprima del roster:")
     st.dataframe(roster_df.head())
     
-    st.write("Anteprima delle statistiche:")
-    st.dataframe(stats_df.head())
-    
     # Selezione della squadra
-    if 'TEAM_NAME' in roster_df.columns:
-        team_selected = st.selectbox("Seleziona una squadra", roster_df['TEAM_NAME'].unique())
-        df_team = roster_df[roster_df['TEAM_NAME'] == team_selected]
+    if 'team' in roster_df.columns:
+        team_selected = st.selectbox("Seleziona una squadra", roster_df['team'].unique())
+        df_team = roster_df[roster_df['team'] == team_selected]
     
         # Mostra informazioni sulla squadra selezionata
-        team_info = teams_df[teams_df['TEAM'] == team_selected]
+        team_info = teams_df[teams_df['team'] == team_selected]
         if not team_info.empty:
             st.subheader(f"Informazioni sulla squadra: {team_selected}")
-            st.write(f"**Twitter:** {team_info['TWITTER'].values[0]}")
-            st.write(f"**NCAA ID:** {team_info['NCAA_ID'].values[0]}")
-            st.write(f"**Conference:** {team_info['CONFERENCE'].values[0]}")
-            st.write(f"**Division:** {team_info['DIVISION'].values[0]}")
+            st.write(f"**Twitter:** {team_info['twitter'].values[0]}")
+            st.write(f"**NCAA ID:** {team_info['ncaa_id'].values[0]}")
+            st.write(f"**Conference:** {team_info['conference'].values[0]}")
+            st.write(f"**Division:** {team_info['division'].values[0]}")
     
         # Selezione della giocatrice
-        if 'PLAYER_NAME' in df_team.columns:
-            player_selected = st.selectbox("Seleziona una giocatrice", df_team['PLAYER_NAME'].unique())
-            df_player = stats_df[stats_df['PLAYER_NAME'] == player_selected]
-            
-            # Statistiche complete della giocatrice
-            st.subheader(f"Statistiche di {player_selected}")
+        if 'name' in df_team.columns:
+            player_selected = st.selectbox("Seleziona una giocatrice", df_team['name'].unique())
+            st.subheader(f"Dettagli della giocatrice: {player_selected}")
+            df_player = df_team[df_team['name'] == player_selected]
             st.dataframe(df_player)
-            
-            # Grafico radar delle abilità
-            st.subheader(f"Profilo Abilità - {player_selected}")
-            skill_cols = ['POINTS', 'TOTAL_REBOUNDS', 'ASSISTS', 'STEALS', 'BLOCKS']
-            if all(col in df_player.columns for col in skill_cols):
-                skills = df_player[skill_cols].mean()
-                fig_radar = px.line_polar(r=skills.values, theta=skill_cols, line_close=True, title=f"Radar Abilità - {player_selected}")
-                st.plotly_chart(fig_radar)
-            
-            # Grafico 3D a bolle
-            st.subheader("Prestazioni della giocatrice in 3D")
-            if all(col in df_player.columns for col in ['MINUTES_PLAYED', 'POINTS', 'TOTAL_REBOUNDS']):
-                fig_3d = px.scatter_3d(df_player, x='MINUTES_PLAYED', y='POINTS', z='TOTAL_REBOUNDS', color='GAMES',
-                                       size='POINTS', title=f"Performance 3D di {player_selected}")
-                st.plotly_chart(fig_3d)
-            
-            # Istogrammi 3D
-            st.subheader("Distribuzione Statistiche in 3D")
-            if all(col in df_player.columns for col in ['GAMES', 'FIELD_GOALS_MADE', 'THREE_POINTS_MADE']):
-                fig_hist3d = go.Figure(data=[go.Bar3d(
-                    x=df_player['GAMES'],
-                    y=['Field Goals', '3PT Made'],
-                    z=[df_player['FIELD_GOALS_MADE'].sum(), df_player['THREE_POINTS_MADE'].sum()],
-                    opacity=0.8
-                )])
-                fig_hist3d.update_layout(title=f"Distribuzione dei Tiri di {player_selected}")
-                st.plotly_chart(fig_hist3d)
+
+            # Grafico di distribuzione altezza
+            st.subheader("Distribuzione Altezza per Stagione")
+            if 'season' in roster_df.columns and 'total_inches' in roster_df.columns:
+                fig_height = px.box(roster_df, x='season', y='total_inches', title="Distribuzione Altezza per Stagione")
+                st.plotly_chart(fig_height)
+
+            # Grafico 3D altezza per stagione
+            st.subheader("Evoluzione Altezza nel Tempo")
+            if 'season' in roster_df.columns and 'height_ft' in roster_df.columns and 'height_in' in roster_df.columns:
+                fig_3d_height = px.scatter_3d(roster_df, x='season', y='height_ft', z='height_in', color='team', title="Evoluzione Altezza 3D")
+                st.plotly_chart(fig_3d_height)
+
+            # Grafico a dispersione altezza vs posizione
+            st.subheader("Relazione tra Altezza e Posizione")
+            if 'position_clean' in roster_df.columns and 'total_inches' in roster_df.columns:
+                fig_scatter = px.scatter(roster_df, x='position_clean', y='total_inches', color='season', title="Altezza vs Posizione")
+                st.plotly_chart(fig_scatter)
+
+            # Analisi della distribuzione delle posizioni nel tempo
+            st.subheader("Distribuzione delle Posizioni nel Tempo")
+            if 'season' in roster_df.columns and 'position_clean' in roster_df.columns:
+                fig_bar_positions = px.histogram(roster_df, x='season', color='position_clean', barmode='group', title="Distribuzione Posizioni nel Tempo")
+                st.plotly_chart(fig_bar_positions)
         else:
-            st.write("Colonna PLAYER_NAME non trovata nel roster.")
+            st.write("Colonna name non trovata nel roster.")
     else:
-        st.write("Colonna TEAM_NAME non trovata nel roster.")
+        st.write("Colonna team non trovata nel roster.")
 else:
     st.write("Carica tutti i file CSV per iniziare!")
 
