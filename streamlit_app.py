@@ -59,14 +59,11 @@ if uploaded_teams and uploaded_roster:
         fig_shot = px.scatter(df_player, x='shot_x', y='shot_y', 
                           color_discrete_sequence=['red'],
                           title=f"Mappa Tiri - {player_selected}")
-         fig_shot.update_layout(xaxis_title="Posizione X", yaxis_title="Posizione Y")
+        fig_shot.update_layout(xaxis_title="Posizione X", yaxis_title="Posizione Y")
         st.plotly_chart(fig_shot)
     else:
         st.write("Dati sui tiri non disponibili.")
 
-    else:
-        st.write("Dati sui tiri non disponibili.")
-    
     # Trend di crescita della giocatrice
     st.subheader(f"Evoluzione della carriera di {player_selected}")
     if 'season' in df_player.columns and 'total_inches' in df_player.columns:
