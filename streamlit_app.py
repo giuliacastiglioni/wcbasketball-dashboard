@@ -1,8 +1,7 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 import plotly.express as px
-from mplsoccer import Court
+
 
 # Titolo dell'app
 st.title("🏀 Statistiche Basket Femminile College 2024-2025")
@@ -57,12 +56,14 @@ if uploaded_teams and uploaded_roster:
     # Grafico dei tiri su un campo da basket
     st.subheader(f"Tiri di {player_selected}")
     if 'shot_x' in df_player.columns and 'shot_y' in df_player.columns:
-        fig, ax = plt.subplots(figsize=(6, 5))
-        court = Court()
-        court.draw(ax=ax)
-        ax.scatter(df_player['shot_x'], df_player['shot_y'], c='red', label='Tiri')
-        ax.legend()
-        st.pyplot(fig)
+    fig_shot = px.scatter(df_player, x='shot_x', y='shot_y', 
+                          color_discrete_sequence=['red'],
+                          title=f"Mappa Tiri - {player_selected}")
+    fig_shot.update_layout(xaxis_title="Posizione X", yaxis_title="Posizione Y")
+    st.plotly_chart(fig_shot)
+else:
+    st.write("Dati sui tiri non disponibili.")
+
     else:
         st.write("Dati sui tiri non disponibili.")
     
