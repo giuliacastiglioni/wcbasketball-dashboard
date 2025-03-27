@@ -56,12 +56,12 @@ if uploaded_teams and uploaded_roster:
     # Grafico dei tiri su un campo da basket
     st.subheader(f"Tiri di {player_selected}")
     if 'shot_x' in df_player.columns and 'shot_y' in df_player.columns:
-    fig_shot = px.scatter(df_player, x='shot_x', y='shot_y', 
+        fig_shot = px.scatter(df_player, x='shot_x', y='shot_y', 
                           color_discrete_sequence=['red'],
                           title=f"Mappa Tiri - {player_selected}")
-    fig_shot.update_layout(xaxis_title="Posizione X", yaxis_title="Posizione Y")
+         fig_shot.update_layout(xaxis_title="Posizione X", yaxis_title="Posizione Y")
     st.plotly_chart(fig_shot)
-else:
+    else:
     st.write("Dati sui tiri non disponibili.")
 
     else:
