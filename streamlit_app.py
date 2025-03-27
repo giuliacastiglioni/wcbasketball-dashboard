@@ -56,24 +56,6 @@ if uploaded_teams and uploaded_rosters and uploaded_stats:
             df_player = df_team[df_team['name'] == player_selected]
             st.dataframe(df_player)
 
-            # Evoluzione delle presenze in campo per stagione
-            st.subheader("Evoluzione Presenze in Campo")
-            if 'season' in df_player.columns and 'year_clean' in df_player.columns:
-                fig_games = px.line(df_player, x='season', y='year_clean', title=f"Presenze in Campo di {player_selected} nel Tempo")
-                st.plotly_chart(fig_games)
-
-            # Distribuzione delle posizioni nel tempo
-            st.subheader("Distribuzione delle Posizioni nel Tempo")
-            if 'season' in df_player.columns and 'position_clean' in df_player.columns:
-                fig_bar_positions = px.histogram(df_player, x='season', color='position_clean', barmode='group', title=f"Posizioni giocate da {player_selected}")
-                st.plotly_chart(fig_bar_positions)
-
-            # Grafico della provenienza geografica
-            st.subheader("Mappa della Provenienza")
-            if 'hometown_clean' in df_player.columns and 'state_clean' in df_player.columns:
-                fig_map = px.scatter_geo(df_player, locations='state_clean', locationmode='USA-states', hover_name='hometown_clean', title=f"Provenienza di {player_selected}")
-                st.plotly_chart(fig_map)
-
             # Statistiche della giocatrice
             st.subheader("Statistiche della Giocatrice")
             df_stats_player = stats_df[stats_df['player_name'] == player_selected]
@@ -85,10 +67,21 @@ if uploaded_teams and uploaded_rosters and uploaded_stats:
                 fig_points = px.bar(df_stats_player, x='games', y='points', title=f"Punti per Partita di {player_selected}")
                 st.plotly_chart(fig_points)
 
-                # Grafico 3D del rendimento in campo
-                st.subheader("Rendimento in Campo 3D")
-                fig_3d_performance = px.scatter_3d(df_stats_player, x='minutes_played', y='field_goals_made', z='three_points_made', color='games', size='points', title=f"Performance 3D di {player_selected}")
-                st.plotly_chart(fig_3d_performance)
+                # Grafico radar confronto con media della squadra
+                st.subheader("Profilo Abilità e Confronto con Media Squadra")
+                skill_cols = ['points', 'total_rebounds', 'assists', 'steals', 'blocks']
+                if all(col in df_stats_player.columns for col in skill_cols):
+                    skills_player = df_stats_player[skill_cols].mean()
+                    skills_team = stats_df[stats_df['team_name'] == team_selected][skill_cols].mean()
+                    radar_data = pd.DataFrame({'Skill': skill_cols, 'Player': skills_player.values, 'Team Avg': skills_team.values})
+                    fig_radar = px.line_polar(radar_data, r=['Player', 'Team Avg'], theta='Skill', line_close=True)
+                    st.plotly_chart(fig_radar)
+
+                # Grafico 3D con distribuzione tiri sul campo
+                st.subheader("Distribuzione dei Tiri sul Campo")
+                if all(col in df_stats_player.columns for col in ['field_goals_made', 'three_points_made', 'free_throws_made']):
+                    fig_shot_chart = px.scatter_3d(df_stats_player, x='field_goal_attempts', y='three_point_attempts', z='free_throw_attempts', color='points', title=f"Distribuzione dei Tiri di {player_selected}")
+                    st.plotly_chart(fig_shot_chart)
 
         else:
             st.write("Colonna name non trovata nel roster.")
@@ -96,6 +89,6 @@ if uploaded_teams and uploaded_rosters and uploaded_stats:
         st.write("Colonna team non trovata nel roster.")
 else:
     st.write("Carica tutti i file CSV per iniziare!")
-
+    
 # Footer
 st.write("App creata da Giulia (e Chat) usando Streamlit e Plotly")
