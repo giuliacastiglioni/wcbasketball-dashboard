@@ -62,29 +62,42 @@ if uploaded_teams and uploaded_rosters and uploaded_stats:
             if not df_stats_player.empty:
                 st.dataframe(df_stats_player)
 
-                # Grafico a barre per i punti per partita
-                st.subheader("Punti per Partita")
+                # Grafico a linee per punti per partita
+                st.subheader("Andamento Punti per Partita")
                 fig_points = px.line(df_stats_player, x='games', y='points', title=f"Andamento Punti per Partita di {player_selected}", markers=True)
                 st.plotly_chart(fig_points)
 
-                # Grafico radar confronto con media della squadra
+                # Confronto tra media giocatrice e media squadra
                 st.subheader("Profilo Abilità e Confronto con Media Squadra")
                 skill_cols = ['points', 'total_rebounds', 'assists', 'steals', 'blocks']
                 if all(col in df_stats_player.columns for col in skill_cols):
                     skills_player = df_stats_player[skill_cols].mean()
                     skills_team = stats_df[stats_df['team_name'] == team_selected][skill_cols].mean()
-                    radar_data = pd.DataFrame({'Skill': skill_cols, 'Player': skills_player.values, 'Team Avg': skills_team.values})
-                    fig_radar = px.line_polar(radar_data, r=['Player', 'Team Avg'], theta='Skill', line_close=True, markers=True)
+                    radar_data = pd.DataFrame({'Skill': skill_cols, 'Player': skills_player, 'Team Avg': skills_team})
+                    fig_radar = px.line_polar(radar_data.melt(id_vars=['Skill'], var_name='Type', value_name='Value'), 
+                                              r='Value', theta='Skill', color='Type', line_close=True, markers=True)
                     st.plotly_chart(fig_radar)
 
-                # Campo 3D per distribuzione tiri
+                # Mappa di tiro 3D
                 st.subheader("Mappa di Tiro in 3D")
                 if all(col in df_stats_player.columns for col in ['field_goal_attempts', 'three_point_attempts', 'free_throw_attempts']):
                     fig_shot_chart = px.scatter_3d(df_stats_player, x='field_goal_attempts', y='three_point_attempts', z='free_throw_attempts', 
                                                    color='points', title=f"Distribuzione dei Tiri di {player_selected}", opacity=0.8, size_max=10)
                     st.plotly_chart(fig_shot_chart)
-
-                # Confronto storico tra stagioni della giocatrice
+                
+                # Grafico 3D delle prestazioni
+                st.subheader("Prestazioni Generali della Giocatrice in 3D")
+                fig_performance_3d = px.scatter_3d(df_stats_player, x='points', y='total_rebounds', z='assists', 
+                                                   color='games', title=f"Prestazioni 3D di {player_selected}", opacity=0.8, size_max=10)
+                st.plotly_chart(fig_performance_3d)
+                
+                # Grafico 3D dell'efficienza al tiro
+                st.subheader("Efficienza al Tiro in 3D")
+                fig_shot_efficiency = px.scatter_3d(df_stats_player, x='field_goal_attempts', y='field_goals_made', z='field_goal_percentage', 
+                                                    color='games', title=f"Efficienza al Tiro di {player_selected}", opacity=0.8, size_max=10)
+                st.plotly_chart(fig_shot_efficiency)
+                
+                # Confronto storico tra stagioni
                 st.subheader("Andamento Storico delle Statistiche della Giocatrice")
                 if 'season' in df_stats_player.columns:
                     fig_history = px.line(df_stats_player, x='season', y=['points', 'assists', 'total_rebounds'], 
