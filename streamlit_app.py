@@ -60,9 +60,9 @@ if uploaded_teams and uploaded_roster:
                           color_discrete_sequence=['red'],
                           title=f"Mappa Tiri - {player_selected}")
          fig_shot.update_layout(xaxis_title="Posizione X", yaxis_title="Posizione Y")
-    st.plotly_chart(fig_shot)
+        st.plotly_chart(fig_shot)
     else:
-    st.write("Dati sui tiri non disponibili.")
+        st.write("Dati sui tiri non disponibili.")
 
     else:
         st.write("Dati sui tiri non disponibili.")
