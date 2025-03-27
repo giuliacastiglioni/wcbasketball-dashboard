@@ -1,151 +1,91 @@
 import streamlit as st
 import pandas as pd
-import math
-from pathlib import Path
+import matplotlib.pyplot as plt
+import plotly.express as px
+from mplsoccer import Court
 
-# Set the title and favicon that appear in the Browser's tab bar.
-st.set_page_config(
-    page_title='GDP dashboard',
-    page_icon=':earth_americas:', # This is an emoji shortcode. Could be a URL too.
-)
+# Titolo dell'app
+st.title("🏀 Statistiche Basket Femminile College 2024-2025")
 
-# -----------------------------------------------------------------------------
-# Declare some useful functions.
+# Caricamento dei dati
+uploaded_teams = st.file_uploader("Carica il file CSV delle squadre", type=["csv"], key="teams")
+uploaded_roster = st.file_uploader("Carica il file CSV del roster 2024-2025", type=["csv"], key="roster")
 
-@st.cache_data
-def get_gdp_data():
-    """Grab GDP data from a CSV file.
+if uploaded_teams and uploaded_roster:
+    teams_df = pd.read_csv(uploaded_teams)
+    roster_df = pd.read_csv(uploaded_roster)
+    
+    st.write("Anteprima delle squadre:")
+    st.dataframe(teams_df.head())
+    
+    st.write("Anteprima del roster:")
+    st.dataframe(roster_df.head())
+    
+    # Selezione della squadra
+    team_selected = st.selectbox("Seleziona una squadra", roster_df['team'].unique())
+    df_team = roster_df[roster_df['team'] == team_selected]
+    
+    # Mostra informazioni sulla squadra selezionata
+    team_info = teams_df[teams_df['team'] == team_selected]
+    if not team_info.empty:
+        st.subheader(f"Informazioni sulla squadra: {team_selected}")
+        st.write(f"**Twitter:** {team_info['twitter'].values[0]}")
+        st.write(f"**NCAA ID:** {team_info['ncaa_id'].values[0]}")
+        st.write(f"**Conference:** {team_info['conference'].values[0]}")
+        st.write(f"**Division:** {team_info['division'].values[0]}")
+    
+    # Selezione della giocatrice
+    player_selected = st.selectbox("Seleziona una giocatrice", df_team['name'].unique())
+    df_player = df_team[df_team['name'] == player_selected]
+    
+    # Statistiche della giocatrice
+    st.subheader(f"Statistiche di {player_selected}")
+    st.write(df_player[['year_clean', 'position_clean', 'height_ft', 'height_in', 'total_inches', 'hometown_clean', 'state_clean']])
+    
+    # Visualizzazione 3D (altezza delle giocatrici rispetto al ruolo)
+    fig_3d = px.scatter_3d(df_team, x='total_inches', y='primary_position', z='year_clean', color='total_inches',
+                           hover_name='name', title=f"Distribuzione Altezza/Ruolo - {team_selected}")
+    st.plotly_chart(fig_3d)
+    
+    # Visualizzazione 3D specifica per la giocatrice selezionata
+    st.subheader(f"Visualizzazione 3D - {player_selected}")
+    fig_player_3d = px.scatter_3d(df_player, x='total_inches', y='primary_position', z='year_clean',
+                                  color='total_inches', hover_name='name',
+                                  title=f"Profilo Altezza/Ruolo - {player_selected}")
+    st.plotly_chart(fig_player_3d)
+    
+    # Grafico dei tiri su un campo da basket
+    st.subheader(f"Tiri di {player_selected}")
+    if 'shot_x' in df_player.columns and 'shot_y' in df_player.columns:
+        fig, ax = plt.subplots(figsize=(6, 5))
+        court = Court()
+        court.draw(ax=ax)
+        ax.scatter(df_player['shot_x'], df_player['shot_y'], c='red', label='Tiri')
+        ax.legend()
+        st.pyplot(fig)
+    else:
+        st.write("Dati sui tiri non disponibili.")
+    
+    # Trend di crescita della giocatrice
+    st.subheader(f"Evoluzione della carriera di {player_selected}")
+    if 'season' in df_player.columns and 'total_inches' in df_player.columns:
+        fig_growth = px.line(df_player, x='season', y='total_inches', title=f"Evoluzione Altezza - {player_selected}", markers=True)
+        st.plotly_chart(fig_growth)
+    else:
+        st.write("Dati di crescita non disponibili.")
+    
+    # Grafico radar delle abilità
+    st.subheader(f"Profilo Abilità - {player_selected}")
+    skill_cols = ['points', 'rebounds', 'assists', 'steals', 'blocks']
+    if all(col in df_player.columns for col in skill_cols):
+        skills = df_player[skill_cols].mean()
+        fig_radar = px.line_polar(r=skills.values, theta=skill_cols, line_close=True, title=f"Radar Abilità - {player_selected}")
+        st.plotly_chart(fig_radar)
+    else:
+        st.write("Dati sulle abilità non disponibili.")
+    
+else:
+    st.write("Carica entrambi i file CSV per iniziare!")
 
-    This uses caching to avoid having to read the file every time. If we were
-    reading from an HTTP endpoint instead of a file, it's a good idea to set
-    a maximum age to the cache with the TTL argument: @st.cache_data(ttl='1d')
-    """
-
-    # Instead of a CSV on disk, you could read from an HTTP endpoint here too.
-    DATA_FILENAME = Path(__file__).parent/'data/gdp_data.csv'
-    raw_gdp_df = pd.read_csv(DATA_FILENAME)
-
-    MIN_YEAR = 1960
-    MAX_YEAR = 2022
-
-    # The data above has columns like:
-    # - Country Name
-    # - Country Code
-    # - [Stuff I don't care about]
-    # - GDP for 1960
-    # - GDP for 1961
-    # - GDP for 1962
-    # - ...
-    # - GDP for 2022
-    #
-    # ...but I want this instead:
-    # - Country Name
-    # - Country Code
-    # - Year
-    # - GDP
-    #
-    # So let's pivot all those year-columns into two: Year and GDP
-    gdp_df = raw_gdp_df.melt(
-        ['Country Code'],
-        [str(x) for x in range(MIN_YEAR, MAX_YEAR + 1)],
-        'Year',
-        'GDP',
-    )
-
-    # Convert years from string to integers
-    gdp_df['Year'] = pd.to_numeric(gdp_df['Year'])
-
-    return gdp_df
-
-gdp_df = get_gdp_data()
-
-# -----------------------------------------------------------------------------
-# Draw the actual page
-
-# Set the title that appears at the top of the page.
-'''
-# :earth_americas: GDP dashboard
-
-Browse GDP data from the [World Bank Open Data](https://data.worldbank.org/) website. As you'll
-notice, the data only goes to 2022 right now, and datapoints for certain years are often missing.
-But it's otherwise a great (and did I mention _free_?) source of data.
-'''
-
-# Add some spacing
-''
-''
-
-min_value = gdp_df['Year'].min()
-max_value = gdp_df['Year'].max()
-
-from_year, to_year = st.slider(
-    'Which years are you interested in?',
-    min_value=min_value,
-    max_value=max_value,
-    value=[min_value, max_value])
-
-countries = gdp_df['Country Code'].unique()
-
-if not len(countries):
-    st.warning("Select at least one country")
-
-selected_countries = st.multiselect(
-    'Which countries would you like to view?',
-    countries,
-    ['DEU', 'FRA', 'GBR', 'BRA', 'MEX', 'JPN'])
-
-''
-''
-''
-
-# Filter the data
-filtered_gdp_df = gdp_df[
-    (gdp_df['Country Code'].isin(selected_countries))
-    & (gdp_df['Year'] <= to_year)
-    & (from_year <= gdp_df['Year'])
-]
-
-st.header('GDP over time', divider='gray')
-
-''
-
-st.line_chart(
-    filtered_gdp_df,
-    x='Year',
-    y='GDP',
-    color='Country Code',
-)
-
-''
-''
-
-
-first_year = gdp_df[gdp_df['Year'] == from_year]
-last_year = gdp_df[gdp_df['Year'] == to_year]
-
-st.header(f'GDP in {to_year}', divider='gray')
-
-''
-
-cols = st.columns(4)
-
-for i, country in enumerate(selected_countries):
-    col = cols[i % len(cols)]
-
-    with col:
-        first_gdp = first_year[first_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-        last_gdp = last_year[last_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-
-        if math.isnan(first_gdp):
-            growth = 'n/a'
-            delta_color = 'off'
-        else:
-            growth = f'{last_gdp / first_gdp:,.2f}x'
-            delta_color = 'normal'
-
-        st.metric(
-            label=f'{country} GDP',
-            value=f'{last_gdp:,.0f}B',
-            delta=growth,
-            delta_color=delta_color
-        )
+# Footer
+st.write("App creata con ❤️ usando Streamlit, Matplotlib e Plotly")
