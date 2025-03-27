@@ -8,12 +8,13 @@ st.title("🏀 Statistiche Basket Femminile College 2021-2025")
 
 # Caricamento dei file CSV
 uploaded_teams = st.file_uploader("Carica il file CSV delle squadre", type=["csv"], key="teams")
-uploaded_rosters = st.file_uploader("Carica il file CSV dei roster", type=["csv"], key="rosters")
+uploaded_rosters = st.file_uploader("Carica i file CSV dei roster", type=["csv"], accept_multiple_files=True, key="rosters")
 uploaded_stats = st.file_uploader("Carica il file Excel delle statistiche", type=["xlsx"], key="stats")
 
 if uploaded_teams and uploaded_rosters and uploaded_stats:
     teams_df = pd.read_csv(uploaded_teams)
-    roster_df = pd.read_csv(uploaded_rosters)
+    roster_dfs = [pd.read_csv(f) for f in uploaded_rosters]
+    roster_df = pd.concat(roster_dfs)
     stats_df = pd.read_excel(uploaded_stats)
     
     # Normalizzazione nomi colonne
@@ -56,26 +57,42 @@ if uploaded_teams and uploaded_rosters and uploaded_stats:
                 fig_points = px.line(df_player, x='games', y='points', title=f"Andamento Punti di {player_selected}", markers=True)
                 st.plotly_chart(fig_points)
 
-            # Confronto con la media squadra
+            # Confronto con la media squadra migliorato
             skill_cols = ['points', 'total_rebounds', 'assists', 'steals', 'blocks']
             if all(col in df_player.columns for col in skill_cols):
                 skills_player = df_player[skill_cols].mean()
                 skills_team = stats_df[stats_df['team_name'] == team_selected][skill_cols].mean()
                 radar_data = pd.DataFrame({'Skill': skill_cols, 'Player': skills_player, 'Team Avg': skills_team})
-                fig_radar = px.line_polar(radar_data, r='Player', theta='Skill', line_close=True, markers=True)
-                st.plotly_chart(fig_radar)
+                radar_fig = go.Figure()
+                radar_fig.add_trace(go.Scatterpolar(r=skills_player, theta=skill_cols, fill='toself', name=player_selected))
+                radar_fig.add_trace(go.Scatterpolar(r=skills_team, theta=skill_cols, fill='toself', name='Media Squadra'))
+                radar_fig.update_layout(polar=dict(radialaxis=dict(visible=True)), title=f"Confronto tra {player_selected} e la Squadra")
+                st.plotly_chart(radar_fig)
 
-            # Grafico 3D dei tiri
-            if all(col in df_player.columns for col in ['field_goal_attempts', 'three_point_attempts', 'free_throw_attempts']):
+            # Mappa di tiro 3D migliorata
+            if all(col in df_player.columns for col in ['field_goal_attempts', 'three_point_attempts', 'free_throw_attempts', 'points']):
                 fig_shot_chart = px.scatter_3d(df_player, x='field_goal_attempts', y='three_point_attempts', z='free_throw_attempts', 
-                                               color='points', title=f"Distribuzione dei Tiri di {player_selected}", opacity=0.7)
+                                               color='points', title=f"Distribuzione dei Tiri di {player_selected}", opacity=0.7, size_max=10)
                 st.plotly_chart(fig_shot_chart)
 
-            # Andamento storico delle statistiche
+            # Grafico 3D delle prestazioni migliorato
+            if all(col in df_player.columns for col in ['points', 'total_rebounds', 'assists']):
+                fig_performance_3d = px.scatter_3d(df_player, x='points', y='total_rebounds', z='assists', 
+                                                   color='games', title=f"Prestazioni di {player_selected} in 3D", opacity=0.7, size_max=10)
+                st.plotly_chart(fig_performance_3d)
+
+            # Andamento storico delle statistiche migliorato
             if 'season' in df_player.columns:
                 fig_history = px.line(df_player, x='season', y=['points', 'assists', 'total_rebounds'], 
                                       title=f"Andamento Storico di {player_selected}", markers=True)
                 st.plotly_chart(fig_history)
+
+            # Confronto tra roster negli anni
+            if 'season' in roster_df.columns:
+                fig_roster_comparison = px.box(roster_df, x='season', y='height_clean', color='team_name',
+                                               title="Distribuzione Altezze nei Roster negli Anni")
+                st.plotly_chart(fig_roster_comparison)
+
         else:
             st.write("Colonna player_name non trovata nel roster.")
     else:
