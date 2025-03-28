@@ -90,40 +90,6 @@ if stats_file:
 
 #st.write("📊 **Analisi individuale delle giocatrici completata!**")
 
-# 📌 **Punto 3: Confronto tra squadre e conference**
-if teams_file:
-    teams_df = pd.read_csv(teams_file)
-    teams_df.columns = teams_df.columns.str.strip().str.lower()
-
-    st.header("📈 Analisi delle Squadre")
-
-    # 1️⃣ **Squadra con più punti segnati per stagione**
-    if "points" in teams_df.columns and "season" in teams_df.columns and "team" in teams_df.columns:
-        top_teams = teams_df.groupby(["season", "team"])["points"].sum().reset_index()
-        fig_top_teams = px.bar(top_teams, x="season", y="points", color="team",
-                               title="Squadra con più punti segnati per stagione", barmode="group")
-        st.plotly_chart(fig_top_teams)
-
-    # 2️⃣ **Evoluzione delle prestazioni delle squadre nel tempo**
-    if all(col in teams_df.columns for col in ["season", "team", "points", "assists", "rebounds"]):
-        fig_team_perf = px.line(teams_df, x="season", y=["points", "assists", "rebounds"],
-                                color="team", title="Evoluzione delle prestazioni delle squadre")
-        st.plotly_chart(fig_team_perf)
-
-    # 3️⃣ **Percentuale di vittorie e trend nel tempo**
-    if "wins" in teams_df.columns and "games_played" in teams_df.columns:
-        teams_df["win_pct"] = teams_df["wins"] / teams_df["games_played"]
-        fig_win_pct = px.line(teams_df, x="season", y="win_pct", color="team",
-                              title="Percentuale di Vittorie e Trend nel Tempo", markers=True)
-        st.plotly_chart(fig_win_pct)
-
-    # 4️⃣ **Differenze tra squadre di diverse conference o divisioni**
-    if "conference" in teams_df.columns:
-        fig_conf_comp = px.box(teams_df, x="conference", y="points",
-                               title="Differenze nei punti segnati tra Conference", color="conference")
-        st.plotly_chart(fig_conf_comp)
-
-
 # 📌 **Punto 4: Analisi avanzate con grafici 3D**
 if stats_file:
     stats_df = pd.read_excel(stats_file)
