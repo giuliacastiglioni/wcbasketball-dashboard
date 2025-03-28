@@ -3,3 +3,5 @@ pandas
 mplsoccer
 matplotlib
 plotly
+numpy
+sklearn

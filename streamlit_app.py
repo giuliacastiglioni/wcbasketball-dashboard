@@ -2,13 +2,16 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import numpy as np
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
 
 # Titolo dell'app
 st.title("**🏀 College Baskeball Analysis: just for fun!**")
 
 # 📂 **Caricamento dei file**
 roster_files = st.file_uploader("Carica i file CSV dei roster (2021-2025)", type=["csv"], accept_multiple_files=True)
-stats_file = st.file_uploader("Carica il file Excel con le statistiche dei giocatori", type=["xlsx"], accept_multiple_files=True)
+stats_file = st.file_uploader("Carica il file Excel con le statistiche dei giocatori", type=["xlsx"])
 teams_file = st.file_uploader("Carica il file CSV con i dati delle squadre", type=["csv"])
 
 st.write("📊 **Carica i dati per iniziare!**")
@@ -51,39 +54,40 @@ if roster_files:
 
 # 📌 **Punto 2: Analisi individuale delle giocatrici**
 if stats_file:
-    stats_df = pd.read_excel(stats_file)
-    stats_df.columns = stats_df.columns.str.strip().str.lower()  # Convertiamo le colonne in minuscolo
+    # Carichiamo i dati dal file
+    stats_df = pd.read_excel(stats_file, sheet_name="Sheet1")
+    stats_df.columns = stats_df.columns.str.strip().str.upper()  # Convertiamo le colonne in maiuscolo per uniformità
 
     st.header("📊 Analisi delle Statistiche Giocatrici")
 
-    # Selezione della giocatrice
-    players = stats_df["player_name"].unique()
+    # 🔍 **Selezione della giocatrice**
+    players = stats_df["PLAYER_NAME"].unique()
     selected_player = st.selectbox("Seleziona una giocatrice:", players)
 
     # 📊 **Andamento delle statistiche nel tempo**
-    player_stats = stats_df[stats_df["player_name"] == selected_player]
-    fig_stats = px.line(player_stats, x="games", y=["points", "assists", "total_rebounds"],
-                         title=f"Andamento delle Statistiche di {selected_player}", markers=True)
-    st.plotly_chart(fig_stats)
+    player_stats = stats_df[stats_df["PLAYER_NAME"] == selected_player]
+    if not player_stats.empty:
+        fig_stats = px.line(player_stats, x="GAMES", y=["POINTS", "ASSISTS", "TOTAL_REBOUNDS"],
+                            title=f"Andamento delle Statistiche di {selected_player}", markers=True)
+        st.plotly_chart(fig_stats)
 
     # 🎯 **Mappa di tiro migliorata**
-    if "shot_zone" in stats_df.columns and "field_goal_percentage" in stats_df.columns:
-        fig_shot_map = px.scatter(stats_df[stats_df["player_name"] == selected_player],
-                                  x="shot_zone", y="field_goal_percentage", size="field_goal_attempts", 
-                                  color="field_goal_percentage",
+    if "FIELD_GOAL_PERCENTAGE" in stats_df.columns:
+        fig_shot_map = px.scatter(player_stats, x="FIELD_GOAL_ATTEMPTS", y="FIELD_GOAL_PERCENTAGE",
+                                  size="FIELD_GOALS_MADE", color="FIELD_GOAL_PERCENTAGE",
                                   title=f"Mappa di tiro di {selected_player}")
         st.plotly_chart(fig_shot_map)
 
     # 🆚 **Confronto giocatrice vs squadra**
-    if "team_name" in stats_df.columns:
-        team_avg = stats_df.groupby("team_name")[["points", "assists", "total_rebounds"]].mean().reset_index()
-        player_team = stats_df[stats_df["player_name"] == selected_player]["team_name"].iloc[0]
-        player_avg = stats_df[stats_df["player_name"] == selected_player][["points", "assists", "total_rebounds"]].mean()
-        
+    if "TEAM_NAME" in stats_df.columns:
+        team_avg = stats_df.groupby("TEAM_NAME")[["POINTS", "ASSISTS", "TOTAL_REBOUNDS"]].mean().reset_index()
+        player_team = player_stats["TEAM_NAME"].iloc[0]
+        player_avg = player_stats[["POINTS", "ASSISTS", "TOTAL_REBOUNDS"]].mean()
+
         team_vs_player = pd.DataFrame({
             "Statistica": ["Punti", "Assist", "Rimbalzi"],
             "Giocatrice": player_avg.values,
-            "Media Squadra": team_avg[team_avg["team_name"] == player_team].iloc[:, 1:].values.flatten()
+            "Media Squadra": team_avg[team_avg["TEAM_NAME"] == player_team].iloc[:, 1:].values.flatten()
         })
 
         fig_team_comp = px.bar(team_vs_player, x="Statistica", y=["Giocatrice", "Media Squadra"],
@@ -92,51 +96,135 @@ if stats_file:
 
     # 🔥 **Hot Streak & Cold Streak**
     st.header("🔥 Hot & Cold Streak")
-    if "points" in df.columns and "game_number" in df.columns:
-        player_df = df[df["name"] == selected_player].sort_values("game_number")
-        player_df["hot_streak"] = player_df["points"].rolling(3).mean() > 20
-        player_df["cold_streak"] = player_df["points"].rolling(3).mean() < 5
+    if "POINTS" in stats_df.columns and "GAMES" in stats_df.columns:
+        player_stats = player_stats.sort_values("GAMES")
+        player_stats["HOT_STREAK"] = player_stats["POINTS"].rolling(3).mean() > 20
+        player_stats["COLD_STREAK"] = player_stats["POINTS"].rolling(3).mean() < 5
 
-        fig_streak = px.line(player_df, x="game_number", y="points", markers=True,
-                             title=f"Hot & Cold Streak di {selected_player}", color=player_df["hot_streak"].map({True: "Hot", False: "Cold"}))
+        fig_streak = px.line(player_stats, x="GAMES", y="POINTS", markers=True,
+                             title=f"Hot & Cold Streak di {selected_player}",
+                             color=player_stats["HOT_STREAK"].map({True: "Hot", False: "Cold"}))
         st.plotly_chart(fig_streak)
 
     # ⏳ **Consistenza delle Prestazioni**
     st.header("⏳ Consistenza delle Prestazioni")
-    if all(col in df.columns for col in ["points", "rebounds", "assists"]):
-        stats_std = df.groupby("name")[["points", "rebounds", "assists"]].std().reset_index()
-        stats_std = stats_std.melt(id_vars="name", var_name="Statistica", value_name="Deviazione Standard")
+    if all(col in stats_df.columns for col in ["POINTS", "TOTAL_REBOUNDS", "ASSISTS"]):
+        stats_std = stats_df.groupby("PLAYER_NAME")[["POINTS", "TOTAL_REBOUNDS", "ASSISTS"]].std().reset_index()
+        stats_std = stats_std.melt(id_vars="PLAYER_NAME", var_name="Statistica", value_name="Deviazione Standard")
 
         fig_consistency = px.box(stats_std, x="Statistica", y="Deviazione Standard",
                                  title="Consistenza delle Prestazioni")
         st.plotly_chart(fig_consistency)
 
-    # 🏀 **Confronto tra giocatrici con stile di gioco simile**
+    # 🏀 **Giocatrici con Stile di Gioco Simile**
     st.header("🏀 Giocatrici con Stile di Gioco Simile")
-    if all(col in df.columns for col in ["points", "rebounds", "assists", "minutes"]):
-        cluster_data = df.groupby("name")[["points", "rebounds", "assists", "minutes"]].mean()
+    if all(col in stats_df.columns for col in ["POINTS", "TOTAL_REBOUNDS", "ASSISTS", "MINUTES_PLAYED"]):
+        cluster_data = stats_df.groupby("PLAYER_NAME")[["POINTS", "TOTAL_REBOUNDS", "ASSISTS", "MINUTES_PLAYED"]].mean()
         scaler = StandardScaler()
         cluster_scaled = scaler.fit_transform(cluster_data)
         
         kmeans = KMeans(n_clusters=4, random_state=42, n_init=10)
-        cluster_data["cluster"] = kmeans.fit_predict(cluster_scaled)
+        cluster_data["CLUSTER"] = kmeans.fit_predict(cluster_scaled)
 
-        fig_cluster = px.scatter(cluster_data, x="points", y="assists", color=cluster_data["cluster"].astype(str),
+        fig_cluster = px.scatter(cluster_data, x="POINTS", y="ASSISTS", color=cluster_data["CLUSTER"].astype(str),
                                  hover_name=cluster_data.index, title="Clustering delle Giocatrici")
         st.plotly_chart(fig_cluster)
+    
+     # 📊 **Efficienza Avanzata**
+    st.subheader("📈 Efficienza Avanzata")
+    if all(col in stats_df.columns for col in ["POINTS", "FIELD_GOAL_ATTEMPTS", "FREE_THROW_ATTEMPTS", "TURNOVERS", "MINUTES_PLAYED"]):
+        player_stats = stats_df[stats_df["PLAYER_NAME"] == selected_player].copy()
 
-    # 🚀 **Giocatrici con il Maggiore Impatto**
-    st.header("🚀 Giocatrici con Maggiore Impatto")
-    if all(col in df.columns for col in ["points", "rebounds", "assists", "minutes"]):
-        df["impact_score"] = (df["points"] + df["rebounds"] + df["assists"]) / df["minutes"]
-        impact_avg = df.groupby("name")["impact_score"].mean().reset_index()
-        top_impact = impact_avg.sort_values("impact_score", ascending=False).head(10)
+        # Calcolo True Shooting Percentage (TS%)
+        player_stats["TS_PCT"] = player_stats["POINTS"] / (2 * (player_stats["FIELD_GOAL_ATTEMPTS"] + 0.44 * player_stats["FREE_THROW_ATTEMPTS"]))
+        
+        # Calcolo Usage Rate (USG%)
+        player_stats["USG_PCT"] = 100 * (player_stats["FIELD_GOAL_ATTEMPTS"] + 0.44 * player_stats["FREE_THROW_ATTEMPTS"] + player_stats["TURNOVERS"]) / player_stats["MINUTES_PLAYED"]
+        
+        # Visualizzazione grafica
+        fig_efficiency = px.line(player_stats, x="GAMES", y=["TS_PCT", "USG_PCT"], markers=True,
+                                 title=f"Efficienza Avanzata di {selected_player}", labels={"value": "Percentuale", "variable": "Statistica"})
+        st.plotly_chart(fig_efficiency)
 
-        fig_impact = px.bar(top_impact, x="name", y="impact_score",
-                            title="Top 10 Giocatrici per Impatto", color="impact_score")
+    # 🔥 **Momentum e Clutch Performance**
+    st.subheader("🔥 Momentum e Clutch Performance")
+    if all(col in stats_df.columns for col in ["GAMES", "POINTS", "MINUTES_PLAYED"]):
+        player_stats["MOMENTUM"] = player_stats["POINTS"].rolling(3, min_periods=1).mean()
+
+        # Definiamo clutch performance come partite con punti superiori a 20 e giocate con più di 35 minuti
+        clutch_games = player_stats[player_stats["MINUTES_PLAYED"] > 35]
+
+        fig_momentum = px.line(player_stats, x="GAMES", y="MOMENTUM", markers=True,
+                               title=f"Momentum e Clutch Performance di {selected_player}")
+        st.plotly_chart(fig_momentum)
+
+        if not clutch_games.empty:
+            st.write(f"🎯 {selected_player} ha giocato {len(clutch_games)} partite clutch con più di 20 punti e oltre 35 minuti in campo.")
+
+    # 🚀 **MVP Index e Valutazione Impatto**
+    st.subheader("🚀 MVP Index e Valutazione Impatto")
+    if all(col in stats_df.columns for col in ["POINTS", "TOTAL_REBOUNDS", "ASSISTS", "STEALS", "BLOCKS", "TURNOVERS", "MINUTES_PLAYED"]):
+        stats_df["IMPACT_SCORE"] = (stats_df["POINTS"] + stats_df["TOTAL_REBOUNDS"] + stats_df["ASSISTS"] + stats_df["STEALS"] + stats_df["BLOCKS"]) - stats_df["TURNOVERS"]
+        player_impact = stats_df.groupby("PLAYER_NAME")["IMPACT_SCORE"].mean().reset_index()
+        top_impact = player_impact.sort_values("IMPACT_SCORE", ascending=False).head(10)
+
+        fig_impact = px.bar(top_impact, x="PLAYER_NAME", y="IMPACT_SCORE", title="Top 10 Giocatrici per Impatto", color="IMPACT_SCORE")
         st.plotly_chart(fig_impact)
+
 #st.write("📊 **Analisi individuale delle giocatrici completata!**")
 
+if stats_file:
+    stats_df = pd.read_excel(stats_file)
+    stats_df.columns = stats_df.columns.str.strip().str.upper()  # 👈 Convertiamo in MAIUSCOLO
+
+    st.header("📊 Analisi delle Statistiche Giocatrici")
+
+    # Selezione delle due giocatrici
+    players = stats_df["PLAYER_NAME"].unique()
+    selected_player1 = st.selectbox("Seleziona la prima giocatrice:", players, index=0)
+    selected_player2 = st.selectbox("Seleziona la seconda giocatrice:", players, index=1)
+
+    # 📊 **Confronto Statistiche Base**
+    st.subheader("📊 Confronto tra Giocatrici")
+
+    if all(col in stats_df.columns for col in ["PLAYER_NAME", "POINTS", "TOTAL_REBOUNDS", "ASSISTS", "STEALS", "BLOCKS"]):
+        player1_stats = stats_df[stats_df["PLAYER_NAME"] == selected_player1].mean(numeric_only=True)
+        player2_stats = stats_df[stats_df["PLAYER_NAME"] == selected_player2].mean(numeric_only=True)
+
+        compare_df = pd.DataFrame({
+            "Statistiche": ["Punti", "Rimbalzi", "Assist", "Rubate", "Blocchi"],
+            selected_player1: [player1_stats["POINTS"], player1_stats["TOTAL_REBOUNDS"], player1_stats["ASSISTS"], player1_stats["STEALS"], player1_stats["BLOCKS"]],
+            selected_player2: [player2_stats["POINTS"], player2_stats["TOTAL_REBOUNDS"], player2_stats["ASSISTS"], player2_stats["STEALS"], player2_stats["BLOCKS"]],
+        })
+
+        fig_compare = px.bar(compare_df, x="Statistiche", y=[selected_player1, selected_player2],
+                             title=f"Confronto {selected_player1} vs {selected_player2}",
+                             barmode="group")
+        st.plotly_chart(fig_compare)
+
+    # 📈 **Andamento delle Prestazioni nel Tempo**
+    st.subheader("📈 Andamento delle Prestazioni")
+    if all(col in stats_df.columns for col in ["GAMES", "POINTS", "TOTAL_REBOUNDS", "ASSISTS"]):
+        fig_trend = px.line(stats_df[stats_df["PLAYER_NAME"].isin([selected_player1, selected_player2])],
+                            x="GAMES", y="POINTS", color="PLAYER_NAME",
+                            title=f"Andamento dei Punti nel Tempo: {selected_player1} vs {selected_player2}",
+                            markers=True)
+        st.plotly_chart(fig_trend)
+
+    # 🔄 **Radar Chart per confronto multi-statistica**
+    st.subheader("🔄 Confronto Multi-Statistica")
+    if all(col in stats_df.columns for col in ["POINTS", "TOTAL_REBOUNDS", "ASSISTS", "STEALS", "BLOCKS"]):
+        radar_df = pd.DataFrame({
+            "Statistiche": ["Punti", "Rimbalzi", "Assist", "Rubate", "Blocchi"],
+            selected_player1: [player1_stats["POINTS"], player1_stats["TOTAL_REBOUNDS"], player1_stats["ASSISTS"], player1_stats["STEALS"], player1_stats["BLOCKS"]],
+            selected_player2: [player2_stats["POINTS"], player2_stats["TOTAL_REBOUNDS"], player2_stats["ASSISTS"], player2_stats["STEALS"], player2_stats["BLOCKS"]],
+        })
+
+        fig_radar = px.line_polar(radar_df.melt(id_vars="Statistiche"), r="value", theta="Statistiche", 
+                                  color="variable", line_close=True,
+                                  title=f"Radar Chart: {selected_player1} vs {selected_player2}")
+        st.plotly_chart(fig_radar)
+        
 # 📌 **Punto 4: Analisi avanzate con grafici 3D**
 if stats_file:
     stats_df = pd.read_excel(stats_file)
