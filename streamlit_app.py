@@ -32,10 +32,10 @@ if uploaded_teams and uploaded_rosters and uploaded_stats:
     st.dataframe(stats_df.head())
 
     # Analisi 1️⃣: Distribuzione delle altezze delle giocatrici per stagione
-    if 'season' in roster_df.columns and 'height_clean' in roster_df.columns:
-        fig_height = px.box(roster_df, x='season', y='height_clean', color='season',
-                             title="Distribuzione delle Altezze per Stagione")
-        st.plotly_chart(fig_height)
+    #if 'season' in roster_df.columns and 'height_clean' in roster_df.columns:
+    #    fig_height = px.box(roster_df, x='season', y='height_clean', color='season',
+    #                         title="Distribuzione delle Altezze per Stagione")
+    #    st.plotly_chart(fig_height)
     
     # Analisi 2️⃣: Numero di nuove giocatrici per squadra ogni anno
     if 'team' in roster_df.columns and 'player_id' in roster_df.columns:
