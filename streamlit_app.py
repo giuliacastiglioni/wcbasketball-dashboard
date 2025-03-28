@@ -51,7 +51,62 @@ if roster_files:
         st.plotly_chart(fig_geo)
 
 #st.write("📊 **Analisi sui roster completata!**")
+if roster_files:
+    roster_df_list = [pd.read_csv(file) for file in roster_files]
+    roster_df = pd.concat(roster_df_list, ignore_index=True)
+    roster_df.columns = roster_df.columns.str.strip().str.upper()
 
+    st.header("📊 Analisi delle Giocatrici")
+
+    # 1️⃣ **Cluster delle Giocatrici per Altezza e Ruolo**
+    if "HEIGHT" in roster_df.columns and "POSITION" in roster_df.columns:
+        st.subheader("📏 Cluster delle Giocatrici per Altezza e Ruolo")
+
+        height_df = roster_df[["PLAYER_NAME", "HEIGHT", "POSITION"]].dropna()
+        scaler = StandardScaler()
+        height_scaled = scaler.fit_transform(height_df[["HEIGHT"]])
+
+        kmeans = KMeans(n_clusters=4, random_state=42, n_init=10)
+        height_df["CLUSTER"] = kmeans.fit_predict(height_scaled)
+
+        fig_height_cluster = px.scatter(height_df, x="HEIGHT", y="POSITION",
+                                        color=height_df["CLUSTER"].astype(str),
+                                        hover_name="PLAYER_NAME",
+                                        title="Cluster delle Giocatrici per Altezza e Ruolo")
+        st.plotly_chart(fig_height_cluster)
+
+    # 3️⃣ **Stili di Gioco Basati sulle Statistiche Avanzate**
+    stats_file = st.file_uploader("Carica il file con le statistiche delle giocatrici", type=["xlsx"])
+    if stats_file:
+        stats_df = pd.read_excel(stats_file)
+        stats_df.columns = stats_df.columns.str.strip().str.upper()
+
+        if all(col in stats_df.columns for col in ["POINTS", "TOTAL_REBOUNDS", "ASSISTS", "TS_PCT", "USG_PCT"]):
+            st.subheader("🎯 Stili di Gioco Basati sulle Statistiche Avanzate")
+
+            cluster_data = stats_df.groupby("PLAYER_NAME")[["POINTS", "TOTAL_REBOUNDS", "ASSISTS", "TS_PCT", "USG_PCT"]].mean()
+            cluster_scaled = StandardScaler().fit_transform(cluster_data)
+
+            kmeans = KMeans(n_clusters=4, random_state=42, n_init=10)
+            cluster_data["CLUSTER"] = kmeans.fit_predict(cluster_scaled)
+
+            fig_style_cluster = px.scatter(cluster_data, x="TS_PCT", y="USG_PCT", 
+                                           color=cluster_data["CLUSTER"].astype(str),
+                                           hover_name=cluster_data.index,
+                                           title="Clustering delle Giocatrici in Base allo Stile di Gioco")
+            st.plotly_chart(fig_style_cluster)
+
+    # 4️⃣ **Evoluzione Fisica delle Giocatrici**
+    if all(col in roster_df.columns for col in ["PLAYER_NAME", "HEIGHT", "SEASON"]):
+        st.subheader("📈 Evoluzione Fisica delle Giocatrici nel Tempo")
+
+        selected_player = st.selectbox("Seleziona una giocatrice:", roster_df["PLAYER_NAME"].unique())
+
+        player_physical = roster_df[roster_df["PLAYER_NAME"] == selected_player]
+        fig_physical = px.line(player_physical, x="SEASON", y="HEIGHT", markers=True,
+                               title=f"Evoluzione dell'Altezza di {selected_player}")
+        st.plotly_chart(fig_physical)
+        
 # 📌 **Punto 2: Analisi individuale delle giocatrici**
 if stats_file:
     # Carichiamo i dati dal file
@@ -225,47 +280,6 @@ if stats_file:
                                   title=f"Radar Chart: {selected_player1} vs {selected_player2}")
         st.plotly_chart(fig_radar)
 
-if roster_files:
-    for file in roster_files:
-        df = pd.read_csv(file)
-        df["season"] = file.name.split("_")[-1].replace(".csv", "")  # Estrai la stagione dal nome file
-        df_rosters.append(df)
-    
-    roster_df = pd.concat(df_rosters)
-    
-    # Pulizia e filtraggio dei dati
-    roster_df.columns = roster_df.columns.str.strip().str.upper()
-    valid_seasons = ["2021-22", "2022-23", "2023-24", "2024-25"]
-    roster_df = roster_df[roster_df["SEASON"].isin(valid_seasons)]
-    
-    # Calcolo delle statistiche medie per giocatrice
-    player_stats = roster_df.groupby("PLAYER_NAME").agg({
-        'POINTS': 'mean',
-        'REBOUNDS': 'mean',
-        'ASSISTS': 'mean',
-        # Aggiungi altre statistiche se disponibili
-    }).reset_index()
-    
-    # Selezione delle giocatrici per il confronto
-    players = player_stats["PLAYER_NAME"].unique()
-    player1 = st.selectbox("Seleziona la prima giocatrice", players)
-    player2 = st.selectbox("Seleziona la seconda giocatrice", players)
-    
-    if player1 and player2:
-        stats = ['POINTS', 'REBOUNDS', 'ASSISTS']  # Statistiche da confrontare
-        player1_stats = player_stats[player_stats["PLAYER_NAME"] == player1][stats].values.flatten()
-        player2_stats = player_stats[player_stats["PLAYER_NAME"] == player2][stats].values.flatten()
-        
-        comparison_df = pd.DataFrame({
-            'Statistiche': stats,
-            player1: player1_stats,
-            player2: player2_stats
-        })
-        
-        # Visualizzazione del confronto
-        fig = px.bar(comparison_df, x='Statistiche', y=[player1, player2], barmode='group',
-                     title=f'Confronto Statistiche tra {player1} e {player2}')
-        st.plotly_chart(fig)
 
 # 📌 **Punto 4: Analisi avanzate con grafici 3D**
 if stats_file:
