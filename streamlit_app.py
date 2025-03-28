@@ -224,7 +224,49 @@ if stats_file:
                                   color="variable", line_close=True,
                                   title=f"Radar Chart: {selected_player1} vs {selected_player2}")
         st.plotly_chart(fig_radar)
+
+if uploaded_files:
+    for file in uploaded_files:
+        df = pd.read_csv(file)
+        df["season"] = file.name.split("_")[-1].replace(".csv", "")  # Estrai la stagione dal nome file
+        df_rosters.append(df)
+    
+    roster_df = pd.concat(df_rosters)
+    
+    # Pulizia e filtraggio dei dati
+    roster_df.columns = roster_df.columns.str.strip().str.upper()
+    valid_seasons = ["2021-22", "2022-23", "2023-24", "2024-25"]
+    roster_df = roster_df[roster_df["SEASON"].isin(valid_seasons)]
+    
+    # Calcolo delle statistiche medie per giocatrice
+    player_stats = roster_df.groupby("PLAYER_NAME").agg({
+        'POINTS': 'mean',
+        'REBOUNDS': 'mean',
+        'ASSISTS': 'mean',
+        # Aggiungi altre statistiche se disponibili
+    }).reset_index()
+    
+    # Selezione delle giocatrici per il confronto
+    players = player_stats["PLAYER_NAME"].unique()
+    player1 = st.selectbox("Seleziona la prima giocatrice", players)
+    player2 = st.selectbox("Seleziona la seconda giocatrice", players)
+    
+    if player1 and player2:
+        stats = ['POINTS', 'REBOUNDS', 'ASSISTS']  # Statistiche da confrontare
+        player1_stats = player_stats[player_stats["PLAYER_NAME"] == player1][stats].values.flatten()
+        player2_stats = player_stats[player_stats["PLAYER_NAME"] == player2][stats].values.flatten()
         
+        comparison_df = pd.DataFrame({
+            'Statistiche': stats,
+            player1: player1_stats,
+            player2: player2_stats
+        })
+        
+        # Visualizzazione del confronto
+        fig = px.bar(comparison_df, x='Statistiche', y=[player1, player2], barmode='group',
+                     title=f'Confronto Statistiche tra {player1} e {player2}')
+        st.plotly_chart(fig)
+                
 # 📌 **Punto 4: Analisi avanzate con grafici 3D**
 if stats_file:
     stats_df = pd.read_excel(stats_file)
