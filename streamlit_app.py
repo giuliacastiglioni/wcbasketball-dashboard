@@ -4,7 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # Titolo dell'app
-st.title("🏀 Analisi Roster, Statistiche Giocatrici e Squadre")
+st.title("**🏀 College Baskeball Analysis: just for fun!**")
 
 # 📂 **Caricamento dei file**
 roster_files = st.file_uploader("Carica i file CSV dei roster (2021-2025)", type=["csv"], accept_multiple_files=True)
@@ -45,7 +45,7 @@ if roster_files:
                                  hover_name="hometown", title="Distribuzione Geografica delle Giocatrici")
         st.plotly_chart(fig_geo)
 
-st.write("📊 **Analisi sui roster completata!**")
+#st.write("📊 **Analisi sui roster completata!**")
 
 # 📌 **Punto 2: Analisi individuale delle giocatrici**
 if stats_file:
@@ -87,7 +87,7 @@ if stats_file:
                                title=f"Confronto {selected_player} vs Media Squadra", barmode="group")
         st.plotly_chart(fig_team_comp)
 
-st.write("📊 **Analisi individuale delle giocatrici completata!**")
+#st.write("📊 **Analisi individuale delle giocatrici completata!**")
 
 # 📌 **Punto 3: Confronto tra squadre e conference**
 if teams_file:
@@ -122,7 +122,7 @@ if teams_file:
                                title="Differenze nei punti segnati tra Conference", color="conference")
         st.plotly_chart(fig_conf_comp)
 
-st.write("📊 **Analisi delle squadre completata!**")
+
 # 📌 **Punto 4: Analisi avanzate con grafici 3D**
 if stats_file:
     stats_df = pd.read_excel(stats_file)
@@ -166,7 +166,7 @@ if stats_file:
                                  color="player_efficiency_rating", title="Impatto della Giocatrice sulla Squadra")
         st.plotly_chart(fig_pred)
 
-st.write("📊 **Analisi avanzate completate!**")
+st.write("📊 **Carica i dati per iniziare!**")
 
 # Footer
 st.write("App creata da Giulia (e Chat) usando Streamlit e Plotly")
