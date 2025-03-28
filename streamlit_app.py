@@ -4,62 +4,50 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # Titolo dell'app
-st.title("🏀 Statistiche Basket Femminile College 2021-2025")
+st.title("🏀 Analisi Roster nel Tempo")
 
 # Caricamento dei file CSV
-uploaded_teams = st.file_uploader("Carica il file CSV delle squadre", type=["csv"], key="teams")
-uploaded_rosters = st.file_uploader("Carica i file CSV dei roster", type=["csv"], accept_multiple_files=True, key="rosters")
-uploaded_stats = st.file_uploader("Carica il file Excel delle statistiche", type=["xlsx"], key="stats")
+df_rosters = []
 
-if uploaded_teams and uploaded_rosters and uploaded_stats:
-    teams_df = pd.read_csv(uploaded_teams)
-    roster_dfs = [pd.read_csv(f) for f in uploaded_rosters]
-    roster_df = pd.concat(roster_dfs)
-    stats_df = pd.read_excel(uploaded_stats)
+uploaded_files = st.file_uploader("Carica i file CSV dei roster (2021-2025)", type=["csv"], accept_multiple_files=True)
+if uploaded_files:
+    for file in uploaded_files:
+        df = pd.read_csv(file)
+        df["season"] = file.name.split("_")[-1].replace(".csv", "")  # Estrai la stagione dal nome file
+        df_rosters.append(df)
     
-    # Normalizzazione nomi colonne
-    teams_df.columns = teams_df.columns.str.strip().str.lower()
+    roster_df = pd.concat(df_rosters)
+    
+    # Pulizia e filtraggio dei dati
     roster_df.columns = roster_df.columns.str.strip().str.lower()
-    stats_df.columns = stats_df.columns.str.strip().str.lower()
-
-    st.write("Anteprima delle squadre:")
-    st.dataframe(teams_df.head())
-
-    st.write("Anteprima del roster:")
-    st.dataframe(roster_df.head())
-
-    st.write("Anteprima delle statistiche:")
-    st.dataframe(stats_df.head())
-
-    # Analisi 1️⃣: Distribuzione delle altezze delle giocatrici per stagione
-    #if 'season' in roster_df.columns and 'height_clean' in roster_df.columns:
-    #    fig_height = px.box(roster_df, x='season', y='height_clean', color='season',
-    #                         title="Distribuzione delle Altezze per Stagione")
-    #    st.plotly_chart(fig_height)
+    valid_seasons = ["2021-22", "2022-23", "2023-24", "2024-25"]
+    roster_df = roster_df[roster_df["season"].isin(valid_seasons)]
     
-    # Analisi 2️⃣: Numero di nuove giocatrici per squadra ogni anno
-    if 'team' in roster_df.columns and 'player_id' in roster_df.columns:
-        roster_df['new_player'] = ~roster_df.duplicated(subset=['player_id'], keep='first')
-        new_players_by_team = roster_df.groupby(['season', 'team'])['new_player'].sum().reset_index()
-        fig_new_players = px.line(new_players_by_team, x='season', y='new_player', color='team',
-                                   title="Numero di Nuove Giocatrici per Squadra")
-        st.plotly_chart(fig_new_players)
-
-    # Analisi 3️⃣: Turnover delle giocatrici per squadra
-    if 'team' in roster_df.columns and 'player_id' in roster_df.columns:
-        turnover_data = roster_df.groupby(['season', 'team'])['player_id'].nunique().reset_index()
-        fig_turnover = px.bar(turnover_data, x='season', y='player_id', color='team',
-                               title="Turnover delle Giocatrici per Squadra")
-        st.plotly_chart(fig_turnover)
+    # 📊 Distribuzione delle altezze per stagione (box plot)
+    fig_height = px.box(roster_df, x="season", y="total_inches", title="Distribuzione delle Altezze per Stagione")
+    st.plotly_chart(fig_height)
     
-    # Analisi 4️⃣: Distribuzione geografica delle giocatrici per anno
-    if 'season' in roster_df.columns and 'state_clean' in roster_df.columns:
-        fig_geo = px.choropleth(roster_df, locations='state_clean', locationmode="USA-states",
-                                color='season', title="Distribuzione Geografica delle Giocatrici")
+    # 📈 Numero di nuove giocatrici per squadra ogni anno
+    roster_df["new_player"] = ~roster_df.duplicated(subset=["player_id"], keep="first")
+    new_players_per_team = roster_df.groupby(["season", "team"])["new_player"].sum().reset_index()
+    fig_new_players = px.bar(new_players_per_team, x="season", y="new_player", color="team", 
+                             title="Nuove Giocatrici per Squadra", barmode="stack")
+    st.plotly_chart(fig_new_players)
+    
+    # 🔄 Turnover delle giocatrici per squadra
+    player_counts = roster_df.groupby(["season", "team"])["player_id"].count().reset_index()
+    fig_turnover = px.bar(player_counts, x="season", y="player_id", color="team", 
+                          title="Turnover delle Giocatrici per Squadra", barmode="stack")
+    st.plotly_chart(fig_turnover)
+    
+    # 🌍 Distribuzione geografica delle giocatrici per anno
+    if "hometown" in roster_df.columns and "state_clean" in roster_df.columns:
+        fig_geo = px.scatter_geo(roster_df, locations="state_clean", locationmode="USA-states", 
+                                 hover_name="hometown", title="Distribuzione Geografica delle Giocatrici")
         st.plotly_chart(fig_geo)
-
+    
 else:
-    st.write("Carica tutti i file richiesti per iniziare!")
+    st.write("Carica i file dei roster per iniziare l'analisi!")
 
 # Footer
 st.write("App creata da Giulia (e Chat) usando Streamlit e Plotly")
