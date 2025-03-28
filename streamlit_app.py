@@ -225,8 +225,8 @@ if stats_file:
                                   title=f"Radar Chart: {selected_player1} vs {selected_player2}")
         st.plotly_chart(fig_radar)
 
-if uploaded_files:
-    for file in uploaded_files:
+if roster_files:
+    for file in roster_files:
         df = pd.read_csv(file)
         df["season"] = file.name.split("_")[-1].replace(".csv", "")  # Estrai la stagione dal nome file
         df_rosters.append(df)
@@ -266,7 +266,7 @@ if uploaded_files:
         fig = px.bar(comparison_df, x='Statistiche', y=[player1, player2], barmode='group',
                      title=f'Confronto Statistiche tra {player1} e {player2}')
         st.plotly_chart(fig)
-                
+
 # 📌 **Punto 4: Analisi avanzate con grafici 3D**
 if stats_file:
     stats_df = pd.read_excel(stats_file)
