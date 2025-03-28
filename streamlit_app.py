@@ -8,7 +8,7 @@ st.title("**🏀 College Baskeball Analysis: just for fun!**")
 
 # 📂 **Caricamento dei file**
 roster_files = st.file_uploader("Carica i file CSV dei roster (2021-2025)", type=["csv"], accept_multiple_files=True)
-stats_file = st.file_uploader("Carica il file Excel con le statistiche dei giocatori", type=["xlsx"])
+stats_file = st.file_uploader("Carica il file Excel con le statistiche dei giocatori", type=["xlsx"], accept_multiple_files=True)
 teams_file = st.file_uploader("Carica il file CSV con i dati delle squadre", type=["csv"])
 
 st.write("📊 **Carica i dati per iniziare!**")
@@ -90,6 +90,51 @@ if stats_file:
                                title=f"Confronto {selected_player} vs Media Squadra", barmode="group")
         st.plotly_chart(fig_team_comp)
 
+    # 🔥 **Hot Streak & Cold Streak**
+    st.header("🔥 Hot & Cold Streak")
+    if "points" in df.columns and "game_number" in df.columns:
+        player_df = df[df["name"] == selected_player].sort_values("game_number")
+        player_df["hot_streak"] = player_df["points"].rolling(3).mean() > 20
+        player_df["cold_streak"] = player_df["points"].rolling(3).mean() < 5
+
+        fig_streak = px.line(player_df, x="game_number", y="points", markers=True,
+                             title=f"Hot & Cold Streak di {selected_player}", color=player_df["hot_streak"].map({True: "Hot", False: "Cold"}))
+        st.plotly_chart(fig_streak)
+
+    # ⏳ **Consistenza delle Prestazioni**
+    st.header("⏳ Consistenza delle Prestazioni")
+    if all(col in df.columns for col in ["points", "rebounds", "assists"]):
+        stats_std = df.groupby("name")[["points", "rebounds", "assists"]].std().reset_index()
+        stats_std = stats_std.melt(id_vars="name", var_name="Statistica", value_name="Deviazione Standard")
+
+        fig_consistency = px.box(stats_std, x="Statistica", y="Deviazione Standard",
+                                 title="Consistenza delle Prestazioni")
+        st.plotly_chart(fig_consistency)
+
+    # 🏀 **Confronto tra giocatrici con stile di gioco simile**
+    st.header("🏀 Giocatrici con Stile di Gioco Simile")
+    if all(col in df.columns for col in ["points", "rebounds", "assists", "minutes"]):
+        cluster_data = df.groupby("name")[["points", "rebounds", "assists", "minutes"]].mean()
+        scaler = StandardScaler()
+        cluster_scaled = scaler.fit_transform(cluster_data)
+        
+        kmeans = KMeans(n_clusters=4, random_state=42, n_init=10)
+        cluster_data["cluster"] = kmeans.fit_predict(cluster_scaled)
+
+        fig_cluster = px.scatter(cluster_data, x="points", y="assists", color=cluster_data["cluster"].astype(str),
+                                 hover_name=cluster_data.index, title="Clustering delle Giocatrici")
+        st.plotly_chart(fig_cluster)
+
+    # 🚀 **Giocatrici con il Maggiore Impatto**
+    st.header("🚀 Giocatrici con Maggiore Impatto")
+    if all(col in df.columns for col in ["points", "rebounds", "assists", "minutes"]):
+        df["impact_score"] = (df["points"] + df["rebounds"] + df["assists"]) / df["minutes"]
+        impact_avg = df.groupby("name")["impact_score"].mean().reset_index()
+        top_impact = impact_avg.sort_values("impact_score", ascending=False).head(10)
+
+        fig_impact = px.bar(top_impact, x="name", y="impact_score",
+                            title="Top 10 Giocatrici per Impatto", color="impact_score")
+        st.plotly_chart(fig_impact)
 #st.write("📊 **Analisi individuale delle giocatrici completata!**")
 
 # 📌 **Punto 4: Analisi avanzate con grafici 3D**
