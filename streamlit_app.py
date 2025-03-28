@@ -50,37 +50,38 @@ if roster_files:
 # 📌 **Punto 2: Analisi individuale delle giocatrici**
 if stats_file:
     stats_df = pd.read_excel(stats_file)
-    stats_df.columns = stats_df.columns.str.strip().str.lower()
+    stats_df.columns = stats_df.columns.str.strip().str.lower()  # Convertiamo le colonne in minuscolo
 
     st.header("📊 Analisi delle Statistiche Giocatrici")
 
     # Selezione della giocatrice
-    players = stats_df["name"].unique()
+    players = stats_df["player_name"].unique()
     selected_player = st.selectbox("Seleziona una giocatrice:", players)
 
     # 📊 **Andamento delle statistiche nel tempo**
-    player_stats = stats_df[stats_df["name"] == selected_player]
-    fig_stats = px.line(player_stats, x="season", y=["points", "assists", "rebounds"],
+    player_stats = stats_df[stats_df["player_name"] == selected_player]
+    fig_stats = px.line(player_stats, x="games", y=["points", "assists", "total_rebounds"],
                          title=f"Andamento delle Statistiche di {selected_player}", markers=True)
     st.plotly_chart(fig_stats)
 
     # 🎯 **Mappa di tiro migliorata**
-    if "shot_zone" in stats_df.columns and "fg_pct" in stats_df.columns:
-        fig_shot_map = px.scatter(stats_df[stats_df["name"] == selected_player],
-                                  x="shot_zone", y="fg_pct", size="attempts", color="fg_pct",
+    if "shot_zone" in stats_df.columns and "field_goal_percentage" in stats_df.columns:
+        fig_shot_map = px.scatter(stats_df[stats_df["player_name"] == selected_player],
+                                  x="shot_zone", y="field_goal_percentage", size="field_goal_attempts", 
+                                  color="field_goal_percentage",
                                   title=f"Mappa di tiro di {selected_player}")
         st.plotly_chart(fig_shot_map)
 
     # 🆚 **Confronto giocatrice vs squadra**
-    if "team" in stats_df.columns:
-        team_avg = stats_df.groupby("team")[["points", "assists", "rebounds"]].mean().reset_index()
-        player_team = stats_df[stats_df["name"] == selected_player]["team"].iloc[0]
-        player_avg = stats_df[stats_df["name"] == selected_player][["points", "assists", "rebounds"]].mean()
+    if "team_name" in stats_df.columns:
+        team_avg = stats_df.groupby("team_name")[["points", "assists", "total_rebounds"]].mean().reset_index()
+        player_team = stats_df[stats_df["player_name"] == selected_player]["team_name"].iloc[0]
+        player_avg = stats_df[stats_df["player_name"] == selected_player][["points", "assists", "total_rebounds"]].mean()
         
         team_vs_player = pd.DataFrame({
             "Statistica": ["Punti", "Assist", "Rimbalzi"],
             "Giocatrice": player_avg.values,
-            "Media Squadra": team_avg[team_avg["team"] == player_team].iloc[:, 1:].values.flatten()
+            "Media Squadra": team_avg[team_avg["team_name"] == player_team].iloc[:, 1:].values.flatten()
         })
 
         fig_team_comp = px.bar(team_vs_player, x="Statistica", y=["Giocatrice", "Media Squadra"],
