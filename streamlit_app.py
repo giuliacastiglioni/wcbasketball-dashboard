@@ -11,6 +11,8 @@ roster_files = st.file_uploader("Carica i file CSV dei roster (2021-2025)", type
 stats_file = st.file_uploader("Carica il file Excel con le statistiche dei giocatori", type=["xlsx"])
 teams_file = st.file_uploader("Carica il file CSV con i dati delle squadre", type=["csv"])
 
+st.write("📊 **Carica i dati per iniziare!**")
+
 # 📌 **Punto 1: Analisi sui roster nel tempo**
 if roster_files:
     df_rosters = []
@@ -125,15 +127,6 @@ if stats_file:
         ))
         st.plotly_chart(fig_perf_3d)
 
-    # 🔮 **Modelli predittivi per stimare l'impatto di una giocatrice sulla squadra**
-    st.subheader("🔮 Modelli Predittivi: Valutazione Impatto Giocatrice")
-
-    if all(col in stats_df.columns for col in ["player_efficiency_rating", "win_shares", "usage_rate"]):
-        fig_pred = px.scatter_3d(stats_df, x="player_efficiency_rating", y="win_shares", z="usage_rate",
-                                 color="player_efficiency_rating", title="Impatto della Giocatrice sulla Squadra")
-        st.plotly_chart(fig_pred)
-
-st.write("📊 **Carica i dati per iniziare!**")
-
+   
 # Footer
 st.write("App creata da Giulia (e Chat) usando Streamlit e Plotly")
