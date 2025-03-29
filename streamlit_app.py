@@ -225,66 +225,56 @@ if stats_file:
                                   title=f"Radar Chart: {selected_player1} vs {selected_player2}")
         st.plotly_chart(fig_radar)
 
-if stats_file:
+
+if stats_file and teams_file:
+    # 📊 Caricamento dei dati
     stats_df = pd.read_excel(stats_file)
+    teams_df = pd.read_csv(teams_file)
+
+    # 🏀 Pulizia colonne
     stats_df.columns = stats_df.columns.str.strip().str.upper()
+    teams_df.columns = teams_df.columns.str.strip().str.upper()
 
-    # 📌 Selezione della squadra
-    teams = stats_df["TEAM_NAME"].unique()
-    selected_team = st.selectbox("Seleziona una squadra:", teams)
+    # 🎯 Selezione squadra
+    teams_list = teams_df["TEAM"].unique()
+    selected_team = st.selectbox("Seleziona una squadra:", teams_list)
 
-    # 📊 Filtriamo il dataset per la squadra selezionata
+    # 🔍 Filtrare i dati per la squadra selezionata
     team_stats = stats_df[stats_df["TEAM_NAME"] == selected_team]
 
-    # 🔹 Sezione Roster
-    if roster_files:
-        roster_df_list = [pd.read_csv(file) for file in roster_files]
-        roster_df = pd.concat(roster_df_list, ignore_index=True)
-        roster_df.columns = roster_df.columns.str.strip().str.upper()
+    if not team_stats.empty:
+        st.subheader(f"📊 Analisi per {selected_team}")
 
-        team_roster = roster_df[roster_df["TEAM"] == selected_team]
-        st.subheader(f"📋 Roster di {selected_team}")
-        st.write(team_roster[["PLAYER_NAME", "POSITION", "HEIGHT", "SEASON"]])
+        # 📈 Andamento delle statistiche nel tempo
+        fig_stats = px.line(team_stats, x="GAMES", y=["POINTS", "ASSISTS", "TOTAL_REBOUNDS"],
+                            title=f"Andamento delle Statistiche di {selected_team}", markers=True)
+        st.plotly_chart(fig_stats)
 
-    # 📈 Andamento punti nel tempo
-    if "GAMES" in team_stats.columns and "POINTS" in team_stats.columns:
-        fig_team_trend = px.line(team_stats.groupby("GAMES")["POINTS"].mean().reset_index(),
-                                 x="GAMES", y="POINTS", 
-                                 title=f"Andamento dei punti di {selected_team} nel tempo",
-                                 markers=True)
-        st.plotly_chart(fig_team_trend)
+        # 🔥 Giocatrici top per punti segnati
+        top_scorers = team_stats.groupby("PLAYER_NAME")["POINTS"].sum().reset_index()
+        top_scorers = top_scorers.sort_values(by="POINTS", ascending=False).head(10)
 
-    # 🔹 Confronto tra giocatrici
-    if all(col in team_stats.columns for col in ["PLAYER_NAME", "POINTS", "ASSISTS", "TOTAL_REBOUNDS"]):
-        avg_stats = team_stats.groupby("PLAYER_NAME")[["POINTS", "ASSISTS", "TOTAL_REBOUNDS"]].mean().reset_index()
+        fig_top_scorers = px.bar(top_scorers, x="PLAYER_NAME", y="POINTS", title="Top 10 Scorers della Squadra")
+        st.plotly_chart(fig_top_scorers)
 
-        fig_team_players = px.bar(avg_stats, x="PLAYER_NAME", y=["POINTS", "ASSISTS", "TOTAL_REBOUNDS"], 
-                                  title=f"Statistiche medie delle giocatrici di {selected_team}",
-                                  barmode="group")
-        st.plotly_chart(fig_team_players)
+        # 🆚 Confronto media squadra vs singoli giocatori
+        avg_stats = team_stats.groupby("TEAM_NAME")[["POINTS", "ASSISTS", "TOTAL_REBOUNDS"]].mean().reset_index()
+        player_avg = team_stats.groupby("PLAYER_NAME")[["POINTS", "ASSISTS", "TOTAL_REBOUNDS"]].mean().reset_index()
 
-    # 🔹 Clustering giocatrici
-    if all(col in team_stats.columns for col in ["POINTS", "TOTAL_REBOUNDS", "ASSISTS", "TS_PCT", "USG_PCT"]):
-        cluster_data = team_stats.groupby("PLAYER_NAME")[["POINTS", "TOTAL_REBOUNDS", "ASSISTS", "TS_PCT", "USG_PCT"]].mean()
-        scaler = StandardScaler()
-        cluster_scaled = scaler.fit_transform(cluster_data)
+        comparison_df = pd.concat([
+            pd.DataFrame({"Nome": ["Media Squadra"], "Punti": avg_stats["POINTS"].values,
+                          "Assist": avg_stats["ASSISTS"].values, "Rimbalzi": avg_stats["TOTAL_REBOUNDS"].values}),
+            player_avg.rename(columns={"PLAYER_NAME": "Nome", "POINTS": "Punti", "ASSISTS": "Assist", "TOTAL_REBOUNDS": "Rimbalzi"})
+        ])
 
-        kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
-        cluster_data["CLUSTER"] = kmeans.fit_predict(cluster_scaled)
+        fig_comparison = px.bar(comparison_df.melt(id_vars=["Nome"], var_name="Statistica", value_name="Valore"),
+                                x="Nome", y="Valore", color="Statistica",
+                                title=f"Confronto Statistiche: Media Squadra vs Giocatori", barmode="group")
+        st.plotly_chart(fig_comparison)
 
-        fig_team_cluster = px.scatter(cluster_data, x="TS_PCT", y="USG_PCT", 
-                                      color=cluster_data["CLUSTER"].astype(str),
-                                      hover_name=cluster_data.index,
-                                      title=f"Cluster delle giocatrici di {selected_team}")
-        st.plotly_chart(fig_team_cluster)
-
-    # 🔹 Heatmap dei tiri
-    if "SHOT_X" in team_stats.columns and "SHOT_Y" in team_stats.columns:
-        fig_shot_heatmap = px.density_heatmap(team_stats, x="SHOT_X", y="SHOT_Y", 
-                                              title=f"Heatmap dei tiri di {selected_team}", 
-                                              nbinsx=20, nbinsy=20, color_continuous_scale="YlOrRd")
-        st.plotly_chart(fig_shot_heatmap)
-        
+    else:
+        st.write("⚠️ Nessun dato disponibile per questa squadra.")
+           
 # 📌 **Punto 4: Analisi avanzate con grafici 3D**
 if stats_file:
     stats_df = pd.read_excel(stats_file)
