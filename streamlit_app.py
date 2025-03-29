@@ -309,10 +309,10 @@ else:
 
 # Lista dei file rosters per ogni anno
 rosters_files = {
-    "2022": "wbb_rosters_2024_25.csv",
-    "2023": "wbb_rosters_2023_24.csv",
-    "2024": "wbb_rosters_2022_23.csv",
-    "2025": "wbb_rosters_2021_22.csv"
+    "2025": "wbb_rosters_2024_25.csv",
+    "2024": "wbb_rosters_2023_24.csv",
+    "2023": "wbb_rosters_2022_23.csv",
+    "2022": "wbb_rosters_2021_22.csv"
 }
 
 # Selezione dell'anno
