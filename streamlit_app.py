@@ -226,6 +226,7 @@ if stats_file:
         st.plotly_chart(fig_radar)
 
 
+
 if stats_file and teams_file:
     # 📊 Caricamento dei dati
     stats_df = pd.read_excel(stats_file)
@@ -235,46 +236,37 @@ if stats_file and teams_file:
     stats_df.columns = stats_df.columns.str.strip().str.upper()
     teams_df.columns = teams_df.columns.str.strip().str.upper()
 
+    # 🔄 Normalizziamo i nomi delle squadre (eliminando spazi extra e forzando uppercase)
+    stats_df["TEAM_NAME"] = stats_df["TEAM_NAME"].str.strip().str.upper()
+    teams_df["TEAM"] = teams_df["TEAM"].str.strip().str.upper()
+
+    # 🏀 Lista squadre normalizzata
+    teams_list = sorted(teams_df["TEAM"].unique())
+
     # 🎯 Selezione squadra
-    teams_list = teams_df["TEAM"].unique()
     selected_team = st.selectbox("Seleziona una squadra:", teams_list)
 
-    # 🔍 Filtrare i dati per la squadra selezionata
+    # 🔍 Filtro per la squadra selezionata
     team_stats = stats_df[stats_df["TEAM_NAME"] == selected_team]
 
     if not team_stats.empty:
         st.subheader(f"📊 Analisi per {selected_team}")
 
-        # 📈 Andamento delle statistiche nel tempo
+        # 📈 Grafico dell'andamento delle statistiche
         fig_stats = px.line(team_stats, x="GAMES", y=["POINTS", "ASSISTS", "TOTAL_REBOUNDS"],
                             title=f"Andamento delle Statistiche di {selected_team}", markers=True)
         st.plotly_chart(fig_stats)
 
-        # 🔥 Giocatrici top per punti segnati
+        # 🔥 Top 10 Scorers
         top_scorers = team_stats.groupby("PLAYER_NAME")["POINTS"].sum().reset_index()
         top_scorers = top_scorers.sort_values(by="POINTS", ascending=False).head(10)
 
         fig_top_scorers = px.bar(top_scorers, x="PLAYER_NAME", y="POINTS", title="Top 10 Scorers della Squadra")
         st.plotly_chart(fig_top_scorers)
 
-        # 🆚 Confronto media squadra vs singoli giocatori
-        avg_stats = team_stats.groupby("TEAM_NAME")[["POINTS", "ASSISTS", "TOTAL_REBOUNDS"]].mean().reset_index()
-        player_avg = team_stats.groupby("PLAYER_NAME")[["POINTS", "ASSISTS", "TOTAL_REBOUNDS"]].mean().reset_index()
-
-        comparison_df = pd.concat([
-            pd.DataFrame({"Nome": ["Media Squadra"], "Punti": avg_stats["POINTS"].values,
-                          "Assist": avg_stats["ASSISTS"].values, "Rimbalzi": avg_stats["TOTAL_REBOUNDS"].values}),
-            player_avg.rename(columns={"PLAYER_NAME": "Nome", "POINTS": "Punti", "ASSISTS": "Assist", "TOTAL_REBOUNDS": "Rimbalzi"})
-        ])
-
-        fig_comparison = px.bar(comparison_df.melt(id_vars=["Nome"], var_name="Statistica", value_name="Valore"),
-                                x="Nome", y="Valore", color="Statistica",
-                                title=f"Confronto Statistiche: Media Squadra vs Giocatori", barmode="group")
-        st.plotly_chart(fig_comparison)
-
     else:
-        st.write("⚠️ Nessun dato disponibile per questa squadra.")
-           
+        st.warning(f"⚠️ Nessun dato trovato per {selected_team}. Controlla che il nome della squadra sia corretto nei file!")
+ 
 # 📌 **Punto 4: Analisi avanzate con grafici 3D**
 if stats_file:
     stats_df = pd.read_excel(stats_file)
