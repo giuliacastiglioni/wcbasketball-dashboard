@@ -226,74 +226,192 @@ if stats_file:
         st.plotly_chart(fig_radar)
 
 
-# Carichiamo i file
-stats_path = "/mnt/data/player_stats.xlsx"
-teams_path = "/mnt/data/teams.csv"
+stats_df = pd.read_excel(stats_file)
 
-stats_df = pd.read_excel(stats_path)
-teams_df = pd.read_csv(teams_path)
-
-# Normalizziamo i nomi delle squadre
+# Normalizziamo i nomi delle squadre per evitare errori di formattazione
 stats_df["TEAM_NAME"] = stats_df["TEAM_NAME"].str.strip().str.upper()
-teams_df["TEAM"] = teams_df["TEAM"].str.strip().str.upper()
 
-# Stampiamo le squadre presenti nei due dataset
-print("🏀 Squadre in player_stats.xlsx:")
-print(stats_df["TEAM_NAME"].unique())
+# Lista delle squadre disponibili
+team_list = sorted(stats_df["TEAM_NAME"].unique())
 
-print("\n🏀 Squadre in teams.csv:")
-print(teams_df["TEAM"].unique())
+# Interfaccia Streamlit
+st.title("📊 Analisi Statistiche - per Squadra")
 
-# Troviamo squadre che sono in uno dei due file ma non nell'altro
-solo_in_stats = set(stats_df["TEAM_NAME"]) - set(teams_df["TEAM"])
-solo_in_teams = set(teams_df["TEAM"]) - set(stats_df["TEAM"])
+# Selezione della squadra
+selected_team = st.selectbox("🏀 Seleziona una squadra:", team_list)
 
-print("\n❌ Squadre in player_stats.xlsx ma NON in teams.csv:")
-print(solo_in_stats)
+# Filtriamo i dati della squadra selezionata
+team_data = stats_df[stats_df["TEAM_NAME"] == selected_team]
 
-print("\n❌ Squadre in teams.csv ma NON in player_stats.xlsx:")
-print(solo_in_teams)
+if team_data.empty:
+    st.warning("⚠️ Nessun dato disponibile per questa squadra.")
+else:
+    st.subheader(f"📌 Statistiche per {selected_team}")
 
-if stats_file and teams_file:
-    # 📊 Caricamento dei dati
-    stats_df = pd.read_excel(stats_file)
-    teams_df = pd.read_csv(teams_file)
+    # Mostriamo la tabella dei dati
+    st.dataframe(team_data)
 
-    # 🏀 Pulizia colonne
-    stats_df.columns = stats_df.columns.str.strip().str.upper()
-    teams_df.columns = teams_df.columns.str.strip().str.upper()
+    # Selezione della metrica da visualizzare
+    stat_columns = [col for col in stats_df.columns if col not in ["TEAM_NAME", "PLAYER_NAME"]]
+    selected_stat = st.selectbox("📈 Seleziona una statistica:", stat_columns)
 
-    # 🔄 Normalizziamo i nomi delle squadre (eliminando spazi extra e forzando uppercase)
-    stats_df["TEAM_NAME"] = stats_df["TEAM_NAME"].str.strip().str.upper()
-    teams_df["TEAM"] = teams_df["TEAM"].str.strip().str.upper()
+    # 📊 Grafico a barre per la statistica selezionata
+    fig_bar = px.bar(
+        team_data,
+        x="PLAYER_NAME",
+        y=selected_stat,
+        title=f"{selected_stat} per giocatrice",
+        color="PLAYER_NAME"
+    )
+    st.plotly_chart(fig_bar)
 
-    # 🏀 Lista squadre normalizzata
-    teams_list = sorted(teams_df["TEAM"].unique())
+    # 📊 Distribuzione della statistica scelta
+    fig_hist = px.histogram(
+        team_data,
+        x=selected_stat,
+        nbins=10,
+        title=f"Distribuzione di {selected_stat}",
+        color_discrete_sequence=["#1f77b4"]
+    )
+    st.plotly_chart(fig_hist)
 
-    # 🎯 Selezione squadra
-    selected_team = st.selectbox("Seleziona una squadra:", teams_list)
+    # 📌 Comparazione tra due statistiche
+    selected_stat_2 = st.selectbox("📊 Seleziona una seconda statistica:", stat_columns)
+    fig_scatter = px.scatter(
+        team_data,
+        x=selected_stat,
+        y=selected_stat_2,
+        text="PLAYER_NAME",
+        title=f"Confronto {selected_stat} vs {selected_stat_2}",
+        color="PLAYER_NAME",
+        size_max=15
+    )
+    fig_scatter.update_traces(textposition="top center")
+    st.plotly_chart(fig_scatter)
 
-    # 🔍 Filtro per la squadra selezionata
-    team_stats = stats_df[stats_df["TEAM_NAME"] == selected_team]
+    # 📌 Radar Chart per confronto multiplo
+    num_players = len(team_data)
+    if num_players > 1:
+        selected_players = st.multiselect("👤 Seleziona giocatrici per radar chart:", team_data["PLAYER_NAME"].unique())
 
-    if not team_stats.empty:
-        st.subheader(f"📊 Analisi per {selected_team}")
+        if selected_players:
+            radar_data = team_data[team_data["PLAYER_NAME"].isin(selected_players)]
+            fig_radar = go.Figure()
+            for _, row in radar_data.iterrows():
+                fig_radar.add_trace(go.Scatterpolar(
+                    r=row[stat_columns].values,
+                    theta=stat_columns,
+                    fill="toself",
+                    name=row["PLAYER_NAME"]
+                ))
+            fig_radar.update_layout(title="📡 Radar Chart Statistiche")
+            st.plotly_chart(fig_radar)
 
-        # 📈 Grafico dell'andamento delle statistiche
-        fig_stats = px.line(team_stats, x="GAMES", y=["POINTS", "ASSISTS", "TOTAL_REBOUNDS"],
-                            title=f"Andamento delle Statistiche di {selected_team}", markers=True)
-        st.plotly_chart(fig_stats)
+# Lista dei file rosters per ogni anno
+rosters_files = {
+    "2022": "wbb_rosters_2024_25.csv",
+    "2023": "wbb_rosters_2023_24.csv",
+    "2024": "wbb_rosters_2022_23.csv",
+    "2025": "wbb_rosters_2021_22.csv"
+}
 
-        # 🔥 Top 10 Scorers
-        top_scorers = team_stats.groupby("PLAYER_NAME")["POINTS"].sum().reset_index()
-        top_scorers = top_scorers.sort_values(by="POINTS", ascending=False).head(10)
+# Selezione dell'anno
+selected_year = st.selectbox("📅 Seleziona l'anno di competizione:", list(rosters_files.keys()))
 
-        fig_top_scorers = px.bar(top_scorers, x="PLAYER_NAME", y="POINTS", title="Top 10 Scorers della Squadra")
-        st.plotly_chart(fig_top_scorers)
+# Carica il file rosters corrispondente all'anno selezionato
+rosters_df = pd.read_csv(rosters_files[selected_year])
 
-    else:
-        st.warning(f"⚠️ Nessun dato trovato per {selected_team}. Controlla che il nome della squadra sia corretto nei file!")
- 
+# Normalizziamo i nomi delle squadre per evitare errori di formattazione
+rosters_df["team"] = rosters_df["team"].str.strip().str.upper()
+
+# Lista delle squadre disponibili
+team_list = sorted(rosters_df["team"].unique())
+
+# Interfaccia Streamlit
+st.title(f"📊 Analisi Statistiche - per Squadra ({selected_year})")
+
+# Selezione della squadra
+selected_team = st.selectbox("🏀 Seleziona una squadra:", team_list)
+
+# Filtriamo i dati della squadra selezionata
+team_data = rosters_df[rosters_df["team"] == selected_team]
+
+if team_data.empty:
+    st.warning("⚠️ Nessun dato disponibile per questa squadra.")
+else:
+    st.subheader(f"📌 Statistiche per {selected_team} ({selected_year})")
+
+    # Mostriamo la tabella dei dati
+    st.dataframe(team_data)
+
+    # Selezione della metrica da visualizzare (altezza, posizione, ecc.)
+    stat_columns = ["height_clean", "position", "year", "hometown", "homestate", "previous_school"]  # Aggiungi altre colonne se necessario
+    selected_stat = st.selectbox("📈 Seleziona una statistica:", stat_columns)
+
+    # 📊 Grafico a barre per la statistica selezionata
+    if selected_stat in ["height_clean", "year"]:  # Per colonna numerica
+        fig_bar = px.bar(
+            team_data,
+            x="name",
+            y=selected_stat,
+            title=f"{selected_stat} per giocatrice",
+            color="name"
+        )
+        st.plotly_chart(fig_bar)
+    
+    elif selected_stat == "position":  # Per colonna categorica (posizione)
+        fig_bar = px.bar(
+            team_data,
+            x="position",
+            title=f"Distribuzione per posizione",
+            color="position",
+            category_orders={"position": sorted(team_data["position"].unique())}
+        )
+        st.plotly_chart(fig_bar)
+
+    # 📊 Distribuzione della statistica scelta (per colonne numeriche come height, year)
+    if selected_stat in ["height_clean", "year"]:
+        fig_hist = px.histogram(
+            team_data,
+            x=selected_stat,
+            nbins=10,
+            title=f"Distribuzione di {selected_stat}",
+            color_discrete_sequence=["#1f77b4"]
+        )
+        st.plotly_chart(fig_hist)
+
+    # 📌 Comparazione tra due statistiche (altezza vs posizione, ad esempio)
+    selected_stat_2 = st.selectbox("📊 Seleziona una seconda statistica:", stat_columns)
+    fig_scatter = px.scatter(
+        team_data,
+        x=selected_stat,
+        y=selected_stat_2,
+        text="name",
+        title=f"Confronto {selected_stat} vs {selected_stat_2}",
+        color="name",
+        size_max=15
+    )
+    fig_scatter.update_traces(textposition="top center")
+    st.plotly_chart(fig_scatter)
+
+    # 📌 Radar Chart per confronto multiplo (puoi scegliere statistiche numeriche da confrontare)
+    num_players = len(team_data)
+    if num_players > 1:
+        selected_players = st.multiselect("👤 Seleziona giocatrici per radar chart:", team_data["name"].unique())
+
+        if selected_players:
+            radar_data = team_data[team_data["name"].isin(selected_players)]
+            fig_radar = go.Figure()
+            for _, row in radar_data.iterrows():
+                fig_radar.add_trace(go.Scatterpolar(
+                    r=row[stat_columns].values,  # Adatta le colonne numeriche che vuoi nel radar chart
+                    theta=stat_columns,
+                    fill="toself",
+                    name=row["name"]
+                ))
+            fig_radar.update_layout(title="📡 Radar Chart Statistiche")
+            st.plotly_chart(fig_radar)
+
 # 📌 **Punto 4: Analisi avanzate con grafici 3D**
 if stats_file:
     stats_df = pd.read_excel(stats_file)
