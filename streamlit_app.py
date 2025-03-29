@@ -226,6 +226,33 @@ if stats_file:
         st.plotly_chart(fig_radar)
 
 
+# Carichiamo i file
+stats_path = "/mnt/data/player_stats.xlsx"
+teams_path = "/mnt/data/teams.csv"
+
+stats_df = pd.read_excel(stats_path)
+teams_df = pd.read_csv(teams_path)
+
+# Normalizziamo i nomi delle squadre
+stats_df["TEAM_NAME"] = stats_df["TEAM_NAME"].str.strip().str.upper()
+teams_df["TEAM"] = teams_df["TEAM"].str.strip().str.upper()
+
+# Stampiamo le squadre presenti nei due dataset
+print("🏀 Squadre in player_stats.xlsx:")
+print(stats_df["TEAM_NAME"].unique())
+
+print("\n🏀 Squadre in teams.csv:")
+print(teams_df["TEAM"].unique())
+
+# Troviamo squadre che sono in uno dei due file ma non nell'altro
+solo_in_stats = set(stats_df["TEAM_NAME"]) - set(teams_df["TEAM"])
+solo_in_teams = set(teams_df["TEAM"]) - set(stats_df["TEAM"])
+
+print("\n❌ Squadre in player_stats.xlsx ma NON in teams.csv:")
+print(solo_in_stats)
+
+print("\n❌ Squadre in teams.csv ma NON in player_stats.xlsx:")
+print(solo_in_teams)
 
 if stats_file and teams_file:
     # 📊 Caricamento dei dati
