@@ -225,7 +225,66 @@ if stats_file:
                                   title=f"Radar Chart: {selected_player1} vs {selected_player2}")
         st.plotly_chart(fig_radar)
 
+if stats_file:
+    stats_df = pd.read_excel(stats_file)
+    stats_df.columns = stats_df.columns.str.strip().str.upper()
 
+    # 📌 Selezione della squadra
+    teams = stats_df["TEAM_NAME"].unique()
+    selected_team = st.selectbox("Seleziona una squadra:", teams)
+
+    # 📊 Filtriamo il dataset per la squadra selezionata
+    team_stats = stats_df[stats_df["TEAM_NAME"] == selected_team]
+
+    # 🔹 Sezione Roster
+    if roster_files:
+        roster_df_list = [pd.read_csv(file) for file in roster_files]
+        roster_df = pd.concat(roster_df_list, ignore_index=True)
+        roster_df.columns = roster_df.columns.str.strip().str.upper()
+
+        team_roster = roster_df[roster_df["TEAM"] == selected_team]
+        st.subheader(f"📋 Roster di {selected_team}")
+        st.write(team_roster[["PLAYER_NAME", "POSITION", "HEIGHT", "SEASON"]])
+
+    # 📈 Andamento punti nel tempo
+    if "GAMES" in team_stats.columns and "POINTS" in team_stats.columns:
+        fig_team_trend = px.line(team_stats.groupby("GAMES")["POINTS"].mean().reset_index(),
+                                 x="GAMES", y="POINTS", 
+                                 title=f"Andamento dei punti di {selected_team} nel tempo",
+                                 markers=True)
+        st.plotly_chart(fig_team_trend)
+
+    # 🔹 Confronto tra giocatrici
+    if all(col in team_stats.columns for col in ["PLAYER_NAME", "POINTS", "ASSISTS", "TOTAL_REBOUNDS"]):
+        avg_stats = team_stats.groupby("PLAYER_NAME")[["POINTS", "ASSISTS", "TOTAL_REBOUNDS"]].mean().reset_index()
+
+        fig_team_players = px.bar(avg_stats, x="PLAYER_NAME", y=["POINTS", "ASSISTS", "TOTAL_REBOUNDS"], 
+                                  title=f"Statistiche medie delle giocatrici di {selected_team}",
+                                  barmode="group")
+        st.plotly_chart(fig_team_players)
+
+    # 🔹 Clustering giocatrici
+    if all(col in team_stats.columns for col in ["POINTS", "TOTAL_REBOUNDS", "ASSISTS", "TS_PCT", "USG_PCT"]):
+        cluster_data = team_stats.groupby("PLAYER_NAME")[["POINTS", "TOTAL_REBOUNDS", "ASSISTS", "TS_PCT", "USG_PCT"]].mean()
+        scaler = StandardScaler()
+        cluster_scaled = scaler.fit_transform(cluster_data)
+
+        kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
+        cluster_data["CLUSTER"] = kmeans.fit_predict(cluster_scaled)
+
+        fig_team_cluster = px.scatter(cluster_data, x="TS_PCT", y="USG_PCT", 
+                                      color=cluster_data["CLUSTER"].astype(str),
+                                      hover_name=cluster_data.index,
+                                      title=f"Cluster delle giocatrici di {selected_team}")
+        st.plotly_chart(fig_team_cluster)
+
+    # 🔹 Heatmap dei tiri
+    if "SHOT_X" in team_stats.columns and "SHOT_Y" in team_stats.columns:
+        fig_shot_heatmap = px.density_heatmap(team_stats, x="SHOT_X", y="SHOT_Y", 
+                                              title=f"Heatmap dei tiri di {selected_team}", 
+                                              nbinsx=20, nbinsy=20, color_continuous_scale="YlOrRd")
+        st.plotly_chart(fig_shot_heatmap)
+        
 # 📌 **Punto 4: Analisi avanzate con grafici 3D**
 if stats_file:
     stats_df = pd.read_excel(stats_file)
