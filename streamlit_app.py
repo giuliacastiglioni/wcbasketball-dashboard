@@ -307,111 +307,111 @@ else:
             fig_radar.update_layout(title="📡 Radar Chart Statistiche")
             st.plotly_chart(fig_radar)
 
-# Lista dei file rosters per ogni anno
-rosters_files = {
-    "2025": "wbb_rosters_2024_25.csv",
-    "2024": "wbb_rosters_2023_24.csv",
-    "2023": "wbb_rosters_2022_23.csv",
-    "2022": "wbb_rosters_2021_22.csv"
-}
-
-# Selezione dell'anno
-selected_year = st.selectbox("📅 Seleziona l'anno di competizione:", list(rosters_files.keys()))
-
-# Carica il file rosters corrispondente all'anno selezionato
-rosters_df = pd.read_csv(rosters_files[selected_year])
-
-# Normalizziamo i nomi delle squadre per evitare errori di formattazione
-rosters_df["team"] = rosters_df["team"].str.strip().str.upper()
-
-# Lista delle squadre disponibili
-team_list = sorted(rosters_df["team"].unique())
-
-# Interfaccia Streamlit
-st.title(f"📊 Analisi Statistiche - per Squadra ({selected_year})")
-
-# Selezione della squadra
-selected_team = st.selectbox("🏀 Seleziona una squadra:", team_list)
-
-# Filtriamo i dati della squadra selezionata
-team_data = rosters_df[rosters_df["team"] == selected_team]
-
-if team_data.empty:
-    st.warning("⚠️ Nessun dato disponibile per questa squadra.")
+# Verifica che siano stati caricati i file
+if not roster_files or not stats_file or not teams_file:
+    st.warning("⚠️ Carica tutti i file necessari per procedere.")
 else:
-    st.subheader(f"📌 Statistiche per {selected_team} ({selected_year})")
+    # 📂 Carica i file CSV e Excel
+    # Carica i file roster per ogni anno (2021-2025)
+    rosters_df = pd.concat([pd.read_csv(file) for file in roster_files], ignore_index=True)
 
-    # Mostriamo la tabella dei dati
-    st.dataframe(team_data)
+    # Carica il file delle statistiche
+    stats_df = pd.read_excel(stats_file)
 
-    # Selezione della metrica da visualizzare (altezza, posizione, ecc.)
-    stat_columns = ["height_clean", "position", "year", "hometown", "homestate", "previous_school"]  # Aggiungi altre colonne se necessario
-    selected_stat = st.selectbox("📈 Seleziona una statistica:", stat_columns)
+    # Carica il file delle squadre (non utilizzato direttamente per ora, ma può servire)
+    teams_df = pd.read_csv(teams_file)
 
-    # 📊 Grafico a barre per la statistica selezionata
-    if selected_stat in ["height_clean", "year"]:  # Per colonna numerica
-        fig_bar = px.bar(
-            team_data,
-            x="name",
-            y=selected_stat,
-            title=f"{selected_stat} per giocatrice",
-            color="name"
-        )
-        st.plotly_chart(fig_bar)
-    
-    elif selected_stat == "position":  # Per colonna categorica (posizione)
-        fig_bar = px.bar(
-            team_data,
-            x="position",
-            title=f"Distribuzione per posizione",
-            color="position",
-            category_orders={"position": sorted(team_data["position"].unique())}
-        )
-        st.plotly_chart(fig_bar)
+    # Normalizziamo i nomi delle squadre per evitare errori di formattazione
+    rosters_df["team"] = rosters_df["team"].str.strip().str.upper()
 
-    # 📊 Distribuzione della statistica scelta (per colonne numeriche come height, year)
-    if selected_stat in ["height_clean", "year"]:
-        fig_hist = px.histogram(
+    # Lista delle squadre disponibili
+    team_list = sorted(rosters_df["team"].unique())
+
+    # Interfaccia Streamlit
+    st.title("📊 Analisi Statistiche - per Squadra")
+
+    # Selezione della squadra
+    selected_team = st.selectbox("🏀 Seleziona una squadra:", team_list)
+
+    # Filtriamo i dati della squadra selezionata
+    team_data = rosters_df[rosters_df["team"] == selected_team]
+
+    if team_data.empty:
+        st.warning("⚠️ Nessun dato disponibile per questa squadra.")
+    else:
+        st.subheader(f"📌 Statistiche per {selected_team}")
+
+        # Mostriamo la tabella dei dati
+        st.dataframe(team_data)
+
+        # Selezione della metrica da visualizzare (altezza, posizione, ecc.)
+        stat_columns = ["height_clean", "position", "year", "hometown", "homestate", "previous_school"]  # Aggiungi altre colonne se necessario
+        selected_stat = st.selectbox("📈 Seleziona una statistica:", stat_columns)
+
+        # 📊 Grafico a barre per la statistica selezionata
+        if selected_stat in ["height_clean", "year"]:  # Per colonna numerica
+            fig_bar = px.bar(
+                team_data,
+                x="name",
+                y=selected_stat,
+                title=f"{selected_stat} per giocatrice",
+                color="name"
+            )
+            st.plotly_chart(fig_bar)
+
+        elif selected_stat == "position":  # Per colonna categorica (posizione)
+            fig_bar = px.bar(
+                team_data,
+                x="position",
+                title=f"Distribuzione per posizione",
+                color="position",
+                category_orders={"position": sorted(team_data["position"].unique())}
+            )
+            st.plotly_chart(fig_bar)
+
+        # 📊 Distribuzione della statistica scelta (per colonne numeriche come height, year)
+        if selected_stat in ["height_clean", "year"]:
+            fig_hist = px.histogram(
+                team_data,
+                x=selected_stat,
+                nbins=10,
+                title=f"Distribuzione di {selected_stat}",
+                color_discrete_sequence=["#1f77b4"]
+            )
+            st.plotly_chart(fig_hist)
+
+        # 📌 Comparazione tra due statistiche (altezza vs posizione, ad esempio)
+        selected_stat_2 = st.selectbox("📊 Seleziona una seconda statistica:", stat_columns)
+        fig_scatter = px.scatter(
             team_data,
             x=selected_stat,
-            nbins=10,
-            title=f"Distribuzione di {selected_stat}",
-            color_discrete_sequence=["#1f77b4"]
+            y=selected_stat_2,
+            text="name",
+            title=f"Confronto {selected_stat} vs {selected_stat_2}",
+            color="name",
+            size_max=15
         )
-        st.plotly_chart(fig_hist)
+        fig_scatter.update_traces(textposition="top center")
+        st.plotly_chart(fig_scatter)
 
-    # 📌 Comparazione tra due statistiche (altezza vs posizione, ad esempio)
-    selected_stat_2 = st.selectbox("📊 Seleziona una seconda statistica:", stat_columns)
-    fig_scatter = px.scatter(
-        team_data,
-        x=selected_stat,
-        y=selected_stat_2,
-        text="name",
-        title=f"Confronto {selected_stat} vs {selected_stat_2}",
-        color="name",
-        size_max=15
-    )
-    fig_scatter.update_traces(textposition="top center")
-    st.plotly_chart(fig_scatter)
+        # 📌 Radar Chart per confronto multiplo (puoi scegliere statistiche numeriche da confrontare)
+        num_players = len(team_data)
+        if num_players > 1:
+            selected_players = st.multiselect("👤 Seleziona giocatrici per radar chart:", team_data["name"].unique())
 
-    # 📌 Radar Chart per confronto multiplo (puoi scegliere statistiche numeriche da confrontare)
-    num_players = len(team_data)
-    if num_players > 1:
-        selected_players = st.multiselect("👤 Seleziona giocatrici per radar chart:", team_data["name"].unique())
-
-        if selected_players:
-            radar_data = team_data[team_data["name"].isin(selected_players)]
-            fig_radar = go.Figure()
-            for _, row in radar_data.iterrows():
-                fig_radar.add_trace(go.Scatterpolar(
-                    r=row[stat_columns].values,  # Adatta le colonne numeriche che vuoi nel radar chart
-                    theta=stat_columns,
-                    fill="toself",
-                    name=row["name"]
-                ))
-            fig_radar.update_layout(title="📡 Radar Chart Statistiche")
-            st.plotly_chart(fig_radar)
-
+            if selected_players:
+                radar_data = team_data[team_data["name"].isin(selected_players)]
+                fig_radar = go.Figure()
+                for _, row in radar_data.iterrows():
+                    fig_radar.add_trace(go.Scatterpolar(
+                        r=row[stat_columns].values,  # Adatta le colonne numeriche che vuoi nel radar chart
+                        theta=stat_columns,
+                        fill="toself",
+                        name=row["name"]
+                    ))
+                fig_radar.update_layout(title="📡 Radar Chart Statistiche")
+                st.plotly_chart(fig_radar)
+                
 # 📌 **Punto 4: Analisi avanzate con grafici 3D**
 if stats_file:
     stats_df = pd.read_excel(stats_file)
